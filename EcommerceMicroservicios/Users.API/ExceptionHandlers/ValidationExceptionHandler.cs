@@ -21,19 +21,19 @@ namespace Users.API.ExceptionHandlers
 
             context.Response.StatusCode = StatusCodes.Status400BadRequest;
 
-            var problem = new ProblemDetails
+            await context.Response.WriteAsJsonAsync(new ProblemDetails
             {
-                Type = "https://tools.ietf.org/html/rfc7231#section-6.5.1",
+                Type = "https://httpstatuses.com/400",
                 Title = "Bad Request",
-                Status = StatusCodes.Status400BadRequest,
+                Status = 400,
                 Detail = ex.Message,
-                Instance = context.Request.Path
-            };
-
-            problem.Extensions["errorCode"] = ex.ErrorCode;
-            problem.Extensions["errorMessage"] = ex.Message;
-
-            await context.Response.WriteAsJsonAsync(problem, cancellationToken);
+                Instance = context.Request.Path,
+                Extensions =
+            {
+                ["errorCode"] = ex.ErrorCode,
+                ["errorMessage"] = ex.Message
+            }
+            }, cancellationToken);
 
             return true;
         }
