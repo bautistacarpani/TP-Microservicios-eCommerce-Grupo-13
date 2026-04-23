@@ -19,21 +19,38 @@ namespace Users.API.ExceptionHandlers
             if (exception is not BusinessRuleException ex)
                 return false;
 
-            context.Response.StatusCode = StatusCodes.Status422UnprocessableEntity;
-
-            var problem = new ProblemDetails
+            var statusCode = ex.ErrorCode switch
             {
-                Type = "https://tools.ietf.org/html/rfc4918#section-11.2",
-                Title = "Unprocessable Entity",
-                Status = StatusCodes.Status422UnprocessableEntity,
-                Detail = ex.Message,
-                Instance = context.Request.Path
+                "USR-001" => StatusCodes.Status409Conflict,
+                "USR-003" => StatusCodes.Status401Unauthorized,
+                "USR-004" => StatusCodes.Status403Forbidden,
+                "USR-005" => StatusCodes.Status403Forbidden,
+                _ => StatusCodes.Status422UnprocessableEntity
             };
 
-            problem.Extensions["errorCode"] = ex.ErrorCode;
-            problem.Extensions["errorMessage"] = ex.Message;
+            context.Response.StatusCode = statusCode;
 
-            await context.Response.WriteAsJsonAsync(problem, cancellationToken);
+            await context.Response.WriteAsJsonAsync(new ProblemDetails
+            {
+                Type = $"https://httpstatuses.com/{statusCode}",
+                Title = statusCode switch
+                {
+                    400 => "Bad Request",
+                    401 => "Unauthorized",
+                    403 => "Forbidden",
+                    409 => "Conflict",
+                    422 => "Unprocessable Entity",
+                    _ => "Error"
+                },
+                Status = statusCode,
+                Detail = ex.Message,
+                Instance = context.Request.Path,
+                Extensions =
+            {
+                ["errorCode"] = ex.ErrorCode,
+                ["errorMessage"] = ex.Message
+            }
+            }, cancellationToken);
 
             return true;
         }

@@ -4,16 +4,11 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace Users.API.Exceptions
+
+namespace Users.API.Exceptions;
+
+public class ValidationException(string errorCode, string message) : Exception(message)
 {
-    public class ValidationException : Exception
-    {
-        public string ErrorCode { get; }
-        public ValidationException(string errorCode, string message) :
-        base(message)
-        {
-            ErrorCode = errorCode;
-        }
-    }
+    public string ErrorCode { get; } = errorCode;
 }
 
