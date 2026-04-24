@@ -1,5 +1,6 @@
 using Serilog;
 using Orders.API.ExceptionHandlers;
+using Orders.API.Extensions;
 
 Log.Logger = new LoggerConfiguration()
     .WriteTo.Console()
@@ -30,6 +31,7 @@ if (app.Environment.IsDevelopment())
 app.UseExceptionHandler();
 app.UseHttpsRedirection();
 app.UseSerilogRequestLogging();
+app.MapOrderEndpoints();
 
 app.MapHealthChecks("/health");
 app.MapHealthChecks("/health/ready");
