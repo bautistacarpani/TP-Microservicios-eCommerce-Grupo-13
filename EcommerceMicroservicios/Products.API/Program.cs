@@ -11,7 +11,6 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Host.UseSerilog();
 
 // Add services to the container.
-builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 builder.Services.AddHealthChecks();
@@ -36,7 +35,6 @@ app.UseHttpsRedirection();
 app.UseAuthorization();
 app.UseSerilogRequestLogging();
 
-app.MapControllers();
 app.MapHealthChecks("/health");
 app.MapHealthChecks("/health/ready");
 app.MapHealthChecks("/health/live");
