@@ -39,5 +39,6 @@ app.MapHealthChecks("/health");
 app.MapHealthChecks("/health/ready");
 app.MapHealthChecks("/health/live");
 
+app.MapProductEndpoints();
 
 app.Run();
