@@ -1,13 +1,13 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Mvc;
-using Cart.API.Exceptions;
+using Users.API.Exceptions;
 
-namespace Cart.API.ExceptionHandlers
+namespace Users.API.ExceptionHandlers
 {
     public class ValidationExceptionHandler : IExceptionHandler
     {
@@ -21,19 +21,19 @@ namespace Cart.API.ExceptionHandlers
 
             context.Response.StatusCode = StatusCodes.Status400BadRequest;
 
-            var problem = new ProblemDetails
+            await context.Response.WriteAsJsonAsync(new ProblemDetails
             {
-                Type = "https://tools.ietf.org/html/rfc7231#section-6.5.1",
+                Type = "https://httpstatuses.com/400",
                 Title = "Bad Request",
-                Status = StatusCodes.Status400BadRequest,
+                Status = 400,
                 Detail = ex.Message,
-                Instance = context.Request.Path
-            };
-
-            problem.Extensions["errorCode"] = ex.ErrorCode;
-            problem.Extensions["errorMessage"] = ex.Message;
-
-            await context.Response.WriteAsJsonAsync(problem, cancellationToken);
+                Instance = context.Request.Path,
+                Extensions =
+            {
+                ["errorCode"] = ex.ErrorCode,
+                ["errorMessage"] = ex.Message
+            }
+            }, cancellationToken);
 
             return true;
         }

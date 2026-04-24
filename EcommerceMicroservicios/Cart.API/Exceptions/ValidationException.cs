@@ -1,11 +1,20 @@
-namespace Cart.API.Exceptions;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
 
-public class ValidationException : Exception
+namespace Cart.API.Exceptions
 {
-    public string ErrorCode { get; }
 
-    public ValidationException(string errorCode, string message) : base(message)
+    public class ValidationException : Exception
     {
-        ErrorCode = errorCode;
+        public string ErrorCode { get; }
+        public ValidationException(string errorCode, string message) :
+        base(message)
+        {
+            ErrorCode = errorCode;
+        }
     }
 }
+
