@@ -11,7 +11,7 @@ public static class CartEndpoints
         app.MapGet("/api/cart/{userId}", (Guid userId) =>
         {
             if (!carts.TryGetValue(userId, out var cart))
-                throw new NotFoundException("CRT-001", "Carrito no encontrado.");
+                throw new NotFoundException(ErrorCodes.CarritoNoEncontrado, "Carrito no encontrado.");
 
             return Results.Ok(cart);
         })
@@ -21,7 +21,7 @@ public static class CartEndpoints
         app.MapPost("/api/cart/{userId}/items", (Guid userId, AddToCartRequest req) =>
         {
             if (req.Quantity <= 0)
-                throw new ValidationException("CRT-004", "Cantidad inválida.");
+                throw new ValidationException(ErrorCodes.CantidadInvalida, "Cantidad inválida.");
 
             if (!carts.TryGetValue(userId, out var cart))
             {
@@ -57,14 +57,14 @@ public static class CartEndpoints
         app.MapPut("/api/cart/{userId}/items/{productId}", (Guid userId, Guid productId, UpdateCartItemRequest req) =>
         {
             if (req.Quantity <= 0)
-                throw new ValidationException("CRT-004", "Cantidad inválida.");
+                throw new ValidationException(ErrorCodes.CantidadInvalida, "Cantidad inválida.");
 
             if (!carts.TryGetValue(userId, out var cart))
-                throw new NotFoundException("CRT-001", "Carrito no encontrado.");
+                throw new NotFoundException(ErrorCodes.CarritoNoEncontrado, "Carrito no encontrado.");
 
             var existing = cart.Items.FirstOrDefault(i => i.ProductId == productId);
             if (existing is null)
-                throw new NotFoundException("CRT-002", "Producto no encontrado en el carrito.");
+                throw new NotFoundException(ErrorCodes.ProductoNoEncontrado, "Producto no encontrado en el carrito.");
 
             var updatedItems = cart.Items.ToList();
             updatedItems.Remove(existing);
@@ -81,15 +81,14 @@ public static class CartEndpoints
         app.MapDelete("/api/cart/{userId}/items/{productId}", (Guid userId, Guid productId) =>
         {
             if (!carts.TryGetValue(userId, out var cart))
-                throw new NotFoundException("CRT-001", "Carrito no encontrado.");
+                throw new NotFoundException(ErrorCodes.CarritoNoEncontrado, "Carrito no encontrado.");
 
             var item = cart.Items.FirstOrDefault(i => i.ProductId == productId);
             if (item is null)
-                throw new NotFoundException("CRT-002", "Producto no encontrado en el carrito.");
+                throw new NotFoundException(ErrorCodes.ProductoNoEncontrado, "Producto no encontrado en el carrito.");
 
             var updatedItems = cart.Items.ToList();
             updatedItems.Remove(item);
-
             carts[userId] = cart with { Items = updatedItems, UpdatedAt = DateTime.UtcNow };
 
             return Results.NoContent();
@@ -100,7 +99,7 @@ public static class CartEndpoints
         app.MapDelete("/api/cart/{userId}", (Guid userId) =>
         {
             if (!carts.ContainsKey(userId))
-                throw new NotFoundException("CRT-001", "Carrito no encontrado.");
+                throw new NotFoundException(ErrorCodes.CarritoNoEncontrado, "Carrito no encontrado.");
 
             carts.Remove(userId);
             return Results.NoContent();
