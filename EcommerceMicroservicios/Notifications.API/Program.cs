@@ -1,4 +1,4 @@
-using Notifications.API.ExceptionHandler;
+using Notifications.API.Handler;
 using Notifications.API.Extensions;
 using Serilog;
 public partial class Program
@@ -15,6 +15,12 @@ public partial class Program
         builder.Services.AddEndpointsApiExplorer();
         builder.Services.AddSwaggerGen();
 
+        
+        builder.Services.AddExceptionHandler<NotFoundExceptionHandler>();
+        builder.Services.AddExceptionHandler<BusinessRuleExceptionHandler>();
+        builder.Services.AddExceptionHandler<BaseExceptionHandler>();
+        builder.Services.AddProblemDetails();
+
         var app = builder.Build();
 
         // Swagger UI
@@ -25,11 +31,6 @@ public partial class Program
         }
 
         app.UseHttpsRedirection();
-
-        builder.Services.AddExceptionHandler<NotFoundExceptionHandler>();
-        builder.Services.AddExceptionHandler<BusinessRuleExceptionHandler>();
-        builder.Services.AddExceptionHandler<BaseExceptionHandler>();
-        builder.Services.AddProblemDetails();
 
         app.UseExceptionHandler();
 
