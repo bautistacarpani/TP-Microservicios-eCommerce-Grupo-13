@@ -25,11 +25,27 @@ public static class UsersEndpoints
             // 🔴 Validación de datos → USR-002
             if (string.IsNullOrWhiteSpace(req.Email) ||
                 string.IsNullOrWhiteSpace(req.Password) ||
-                string.IsNullOrWhiteSpace(req.Nombre))
+                string.IsNullOrWhiteSpace(req.Nombre) ||
+                string.IsNullOrWhiteSpace(req.Apellido))
+
             {
                 // Lanza excepción que tu handler convierte en HTTP 400
                 throw new ValidationException("USR-002", "Los datos del usuario son inválidos.");
             }
+
+
+            //  Validar formato básico de email
+            if (!req.Email.Contains("@"))
+            {
+                throw new ValidationException("USR-002", "El formato del email es inválido.");
+            }
+
+            //  Validar password mínima
+            if (req.Password.Length < 8)
+            {
+                throw new ValidationException("USR-002", "La contraseña debe tener al menos 8 caracteres.");
+            }
+
 
             // 🔴 Validar email duplicado → USR-001
             if (users.Any(u => u.Email == req.Email))
@@ -44,9 +60,11 @@ public static class UsersEndpoints
                 Nombre = req.Nombre,
                 Apellido = req.Apellido,
                 Email = req.Email,
-
+                FechaRegistro = DateTime.UtcNow,
+                Activo = true,
+                IntentosFallidos = 0,
+                BloqueadoPorFraude = false,
                 // convierte contraseña en un hash
-               
                 PasswordHash = PasswordHelper.HashPassword(req.Password)
             };
 

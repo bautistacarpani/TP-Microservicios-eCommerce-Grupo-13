@@ -1,21 +1,38 @@
-﻿using Notifications.API.Exceptions;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿using Microsoft.AspNetCore.Diagnostics;
+using Microsoft.AspNetCore.Mvc;
+using Notifications.API.Exceptions;
 
-namespace Notifications.API.ExceptionHandler
+namespace Notifications.API.Handler
 {
-   
-    public class BusinessRuleExceptionHandler : BaseExceptionHandler
+    public class BusinessRuleExceptionHandler : IExceptionHandler
     {
-        protected override bool CanHandle(Exception exception)
-            => exception is BusinessRuleException;
+        public async ValueTask<bool> TryHandleAsync(
+            HttpContext context,
+            Exception exception,
+            CancellationToken cancellationToken)
+        {
+            if (exception is not BusinessRuleException ex)
+                return false;
 
-        protected override int StatusCode => StatusCodes.Status409Conflict;
+            // Ajustado a 400 según el catálogo del TP para NTF-002
+            context.Response.StatusCode = StatusCodes.Status400BadRequest;
 
-        protected override string GetErrorCode(Exception exception)
-            => ((BusinessRuleException)exception).ErrorCode;
+            await context.Response.WriteAsJsonAsync(new ProblemDetails
+            {
+                Type = "https://httpstatuses.com/400",
+                Title = "Bad Request",
+                Status = 400,
+                Detail = ex.Message,
+                Instance = context.Request.Path,
+                Extensions =
+                {
+                    ["errorCode"] = ex.ErrorCode,
+                    ["errorMessage"] = ex.Message
+                }
+            }, cancellationToken);
+
+            return true;
+        }
     }
 }
+
