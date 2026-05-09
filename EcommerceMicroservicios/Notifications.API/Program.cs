@@ -9,7 +9,8 @@ public partial class Program
         var builder = WebApplication.CreateBuilder(args);
 
         // Reemplaza el logging por defecto con Serilog
-        builder.Host.UseSerilog();
+        builder.AddAppLogging();
+        builder.Services.AddSwaggerGen();
 
         //  Swagger
         builder.Services.AddEndpointsApiExplorer();
@@ -20,6 +21,7 @@ public partial class Program
         builder.Services.AddExceptionHandler<BusinessRuleExceptionHandler>();
         builder.Services.AddExceptionHandler<BaseExceptionHandler>();
         builder.Services.AddProblemDetails();
+        builder.Services.AddHealthChecks();
 
         var app = builder.Build();
 
@@ -33,10 +35,11 @@ public partial class Program
         app.UseHttpsRedirection();
 
         app.UseExceptionHandler();
-
+        app.UseAppRequestLogging();
 
         // Endpoints
         app.MapNotificationEndpoints();
+        app.MapHealthChecks("/health");
 
         app.Run();
     }
