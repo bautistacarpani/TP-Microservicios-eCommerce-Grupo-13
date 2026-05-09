@@ -1,4 +1,6 @@
-﻿using Microsoft.AspNetCore.Builder;
+﻿using HealthChecks.UI.Client;
+using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.AspNetCore.Identity;
 using Serilog;
 using Serilog.Events;
@@ -12,28 +14,37 @@ namespace Notifications.API.Extensions
 {
     public static class MiddlewareExtensions
     {
-        /// <summary>
-        /// Middleware centralizado de logging HTTP.
-        /// Intercepta todas las requests y asigna
-        /// un nivel de severidad al evento de log.
-        /// </summary>
         public static void UseAppRequestLogging(this WebApplication app)
         {
             app.UseSerilogRequestLogging(options =>
             {
                 options.GetLevel = (httpContext, _, exception) =>
+                {
+                    // 1. Si hubo un error técnico no controlado -> Error
+                    if (exception != null) return LogEventLevel.Error;
 
-                    // Si ocurrió una excepción → Error
-                    exception != null
-                        ? LogEventLevel.Error
+                    // 2. Filtramos rutas de sistema para evitar "ensuciar" el log de auditoría
+                    var path = httpContext.Request.Path.Value ?? "";
+                    if (path.Contains("/health") || path.Contains("/swagger"))
+                    {
+                        return LogEventLevel.Verbose; // Nivel mínimo: no aparece en consola/archivo normal
+                    }
 
-                        // Requests a /health → Verbose
-                        : httpContext.Request.Path.StartsWithSegments("/health")
-                            ? LogEventLevel.Verbose
+                    // 3. Todo lo demás es una operación válida del negocio -> Information
+                    return LogEventLevel.Information;
+                    options.MessageTemplate = "HTTP {RequestMethod} {RequestPath} respondió {StatusCode} en {Elapsed:0.0000} ms";
 
-                            // Todas las demás → Information
-                            : LogEventLevel.Information;
+                };
+
+                // EXPLICACIÓN: Exponemos el estado de salud en la ruta /health.
+                // Usamos el Formateador de la cátedra para que sea compatible con Dashboards.
+                app.MapHealthChecks("/health", new HealthCheckOptions
+                {
+                    ResponseWriter = UIResponseWriter.WriteHealthCheckUIResponse
+                });
+
             });
         }
+
     }
 }

@@ -3,63 +3,85 @@ using Notifications.API.Models;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-
+using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Logging;
+using Dapper; // <-- Necesario para los métodos de extensión SQL
+using System.Data;
+using Notifications.API.Repositories; // <-- Necesario para IDbConnection
 
 namespace Notifications.API.Extensions
 {
-
     public static class NotificationEndpoints
     {
-        private static readonly List<Notification> notifications = new();
+        // EXPLICACIÓN: Borramos la lista estática porque ahora la "fuente de verdad" es notifications.db
 
         public static void MapNotificationEndpoints(this WebApplication app)
         {
-            app.MapPost("/api/notifications/send", (CreateNotificationRequest request) =>
+            // 1. POST /api/notifications/send
+            // EXPLICACIÓN: Agregamos 'async' y el parámetro 'IDbConnection db'
+            app.MapPost("/api/notifications/send", async (CreateNotificationRequest request, NotificationsRepository repo, ILogger<Program> logger) =>
             {
+                logger.LogInformation("Iniciando proceso de envío de notificación para el usuario: {UsuarioId}", request.UsuarioId);
+
+                // Validaciones de reglas de negocio (siguen igual)
                 if (string.IsNullOrWhiteSpace(request.Mensaje) || string.IsNullOrWhiteSpace(request.Tipo))
                 {
-                    // Lanza la excepción; el BusinessRuleExceptionHandler se encargará de devolver el error 400
+                    logger.LogWarning("Validación fallida: Datos incompletos para UsuarioId: {UsuarioId}", request.UsuarioId);
                     throw new BusinessRuleException("NTF-002", "Los datos de la notificación son inválidos.");
                 }
-                // Simulación para NTF-001 (Cuando el usuario no existe)
-                // Por ahora lo simulamos con un Guid vacío, luego se validará contra la API de Users
+
                 if (request.UsuarioId == Guid.Empty)
                 {
+                    logger.LogWarning("Validación fallida: Intento de envío a Guid vacío.");
                     throw new NotFoundException("NTF-001", "Usuario no encontrado.");
                 }
-                var notification = new Notification
+
+                try
                 {
-                    Id = Guid.NewGuid(),
-                    UsuarioId = request.UsuarioId,
-                    Mensaje = request.Mensaje,
-                    Tipo = request.Tipo,
-                    Estado = "Pendiente",
-                    FechaEnvio = DateTime.UtcNow
-                };
+                    var notification = new Notification
+                    {
+                        Id = Guid.NewGuid(),
+                        UsuarioId = request.UsuarioId,
+                        Mensaje = request.Mensaje,
+                        Tipo = request.Tipo,
+                        Estado = "Pendiente",
+                        FechaEnvio = DateTime.UtcNow
+                    };
 
-                notifications.Add(notification);
+                    // USAMOS EL REPOSITORIO
+                    await repo.CreateAsync(notification);
 
-                return Results.Created($"/api/notifications/{notification.Id}", notification);
+                    logger.LogInformation("Notificación guardada vía Repositorio. ID: {Id}", notification.Id);
+                    return Results.Created($"/api/notifications/{notification.Id}", notification);
+
+                }
+                catch (Exception ex)
+                {
+                    logger.LogError(ex, "Error crítico inesperado al persistir en DB para el usuario {UsuarioId}", request.UsuarioId);
+                    throw;
+                }
             });
-            // 2. GET /api/notifications/{userId}
-            // Agregamos el endpoint GET que pide tu catálogo
-            app.MapGet("/api/notifications/{userId}", (Guid userId) =>
-            {
-                // Buscamos en nuestra lista "falsa" las notificaciones de este usuario
-                var userNotifications = notifications.Where(n => n.UsuarioId == userId).ToList();
 
-                // --- VALIDACIÓN: Si no tiene notificaciones, lanzamos NTF-003 ---
+            // 2. GET /api/notifications/{userId}
+            app.MapGet("/api/notifications/{userId}", async (Guid userId, NotificationsRepository repo, ILogger<Program> logger) =>
+            {
+                logger.LogInformation("Consultando base de datos para el usuario: {UsuarioId}", userId);
+
+                var result = await repo.GetByUserIdAsync(userId);
+                var userNotifications = result.ToList();
+
                 if (!userNotifications.Any())
                 {
+                    logger.LogWarning("No se encontraron registros en SQLite para el usuario: {UsuarioId}", userId);
                     throw new NotFoundException("NTF-003", "No se encontraron notificaciones para el usuario.");
                 }
+
+                logger.LogInformation("Se encontraron {Cantidad} notificaciones en la base de datos.", userNotifications.Count);
 
                 return Results.Ok(userNotifications);
             });
         }
     }
-    }
-
+}
 

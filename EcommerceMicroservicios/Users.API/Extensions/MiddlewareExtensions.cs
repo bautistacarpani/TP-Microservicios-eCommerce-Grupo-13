@@ -1,6 +1,8 @@
-﻿using Serilog;
-using Serilog.Events;
+﻿using HealthChecks.UI.Client;
 using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Diagnostics.HealthChecks;
+using Serilog;
+using Serilog.Events;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -13,27 +15,31 @@ namespace Users.API.Extensions
     {
         public static void UseAppRequestLogging(this WebApplication app)
         {
-            /// <summary>
-            /// Middleware centralizado de logging HTTP.
-            /// Intercepta todas las requests y define el nivel de log
-            /// según el tipo de request o si ocurrió una excepción.
-            /// </summary> 
             app.UseSerilogRequestLogging(options =>
             {
-                options.GetLevel = (httpContext, _, exception) =>
+                options.GetLevel = (httpContext, elapsed, exception) =>
+                {
+                    // Si ocurrió una excepción → Error
+                    if (exception != null) return LogEventLevel.Error;
+                    var path = httpContext.Request.Path.Value ?? "";
+                    if (path.Contains("/health") || path.Contains("/swagger")) return LogEventLevel.Verbose;
+                    return LogEventLevel.Information;
 
-                // Si ocurrió una excepción → Error
-                exception != null
-                ? LogEventLevel.Error
+                };
 
-                // Requests a /health → Verbose
-                : httpContext.Request.Path.StartsWithSegments("/health")
-                ? LogEventLevel.Verbose
-
-                // Todas las demás → Information
-                : LogEventLevel.Information;
+                options.MessageTemplate = "HTTP {RequestMethod} {RequestPath} respondió {StatusCode} en {Elapsed:0.0000} ms";
+            
             });
 
+            // EXPLICACIÓN: Exponemos el estado de salud en la ruta /health.
+            // Usamos el Formateador de la cátedra para que sea compatible con Dashboards.
+            app.MapHealthChecks("/health", new HealthCheckOptions
+            {
+                ResponseWriter = UIResponseWriter.WriteHealthCheckUIResponse
+            });
+
+
         }
+
     }
 }
