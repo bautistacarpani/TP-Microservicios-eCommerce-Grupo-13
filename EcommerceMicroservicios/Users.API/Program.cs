@@ -9,12 +9,8 @@ public partial class Program
 
         var builder = WebApplication.CreateBuilder(args);
 
-        Log.Logger = new LoggerConfiguration()
-           .WriteTo.Console()
-           .CreateLogger();
-
-        // Reemplaza el logging por defecto con Serilog
-        builder.Host.UseSerilog();
+        // referencia a logging extensions
+        builder.AddAppLogging();
 
         //  Swagger
         builder.Services.AddEndpointsApiExplorer();
@@ -37,7 +33,7 @@ public partial class Program
 
         app.UseHttpsRedirection();
         app.UseExceptionHandler();
-        app.UseSerilogRequestLogging();
+        app.UseAppRequestLogging();
 
         // Endpoints
         app.MapUsersEndpoints();
