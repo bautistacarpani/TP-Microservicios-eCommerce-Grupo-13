@@ -1,3 +1,4 @@
+using Products.API.Exceptions;
 using Products.API.Models;
 
 public static class ProductEndpoints
@@ -8,9 +9,17 @@ public static class ProductEndpoints
         var idCounter = 1L;
 
         // GET all
-        app.MapGet("/api/products", () =>
+        app.MapGet("/api/products", (string? categoria, string? nombre) =>
         {
-            return Results.Ok(products);
+            var result = products.AsEnumerable();
+
+            if (!string.IsNullOrEmpty(categoria))
+                result = result.Where(p => p.Category.Equals(categoria, StringComparison.OrdinalIgnoreCase));
+
+            if (!string.IsNullOrEmpty(nombre))
+                result = result.Where(p => p.Name.Contains(nombre, StringComparison.OrdinalIgnoreCase));
+
+            return Results.Ok(result.ToList());
         })
         .WithTags("Products");
 
@@ -18,22 +27,37 @@ public static class ProductEndpoints
         app.MapGet("/api/products/{id}", (long id) =>
         {
             var product = products.FirstOrDefault(p => p.Id == id);
-            return product is not null ? Results.Ok(product) : Results.NotFound();
+
+            if (product is null)
+                throw new NotFoundException(ErrorCodes.ProductoNoEncontrado, "Producto no encontrado.");
+
+            return Results.Ok(product);
         })
         .WithTags("Products");
 
         // POST
         app.MapPost("/api/products", (CreateProductRequest req) =>
         {
+            if (string.IsNullOrEmpty(req.Name) || req.Price <= 0 || req.Stock < 0 || string.IsNullOrEmpty(req.Category))
+                throw new ValidationException(ErrorCodes.DatosInvalidos, "Los datos del producto son inválidos.");
+
+            var existe = products.Any(p =>
+                p.Name.Equals(req.Name, StringComparison.OrdinalIgnoreCase) &&
+                p.Category.Equals(req.Category, StringComparison.OrdinalIgnoreCase));
+
+            if (existe)
+                throw new BusinessRuleException(ErrorCodes.NombreDuplicado,
+                    $"Ya existe un producto con ese nombre en la categoría '{req.Category}'.");
+
             var product = new Product
             {
-                Id = idCounter++,
-                Name = req.Name,
+                Id          = idCounter++,
+                Name        = req.Name,
                 Description = req.Description,
-                Price = (double)req.Price,
-                Stock = req.Stock,
-                Category = req.Category,
-                CreatedAt = DateTime.UtcNow.ToString("o")
+                Price       = (double)req.Price,
+                Stock       = req.Stock,
+                Category    = req.Category,
+                CreatedAt   = DateTime.UtcNow.ToString("o")
             };
 
             products.Add(product);
@@ -47,16 +71,19 @@ public static class ProductEndpoints
             var existing = products.FirstOrDefault(p => p.Id == id);
 
             if (existing is null)
-                return Results.NotFound();
+                throw new NotFoundException(ErrorCodes.ProductoNoEncontrado, "Producto no encontrado.");
+
+            if (string.IsNullOrEmpty(req.Name) || req.Price <= 0 || req.Stock < 0 || string.IsNullOrEmpty(req.Category))
+                throw new ValidationException(ErrorCodes.DatosInvalidos, "Los datos del producto son inválidos.");
 
             var updated = existing with
             {
-                Name = req.Name,
+                Name        = req.Name,
                 Description = req.Description,
-                Price = (double)req.Price,
-                Stock = req.Stock,
-                Category = req.Category,
-                UpdatedAt = DateTime.UtcNow.ToString("o")
+                Price       = (double)req.Price,
+                Stock       = req.Stock,
+                Category    = req.Category,
+                UpdatedAt   = DateTime.UtcNow.ToString("o")
             };
 
             products.Remove(existing);
@@ -71,7 +98,7 @@ public static class ProductEndpoints
             var product = products.FirstOrDefault(p => p.Id == id);
 
             if (product is null)
-                return Results.NotFound();
+                throw new NotFoundException(ErrorCodes.ProductoNoEncontrado, "Producto no encontrado.");
 
             products.Remove(product);
             return Results.NoContent();

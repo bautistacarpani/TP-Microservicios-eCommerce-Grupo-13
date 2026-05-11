@@ -7,127 +7,148 @@ using System.Threading.Tasks;
 using Users.API.Helpers;
 using Users.API.Models;          // Importa los modelos (User, DTOs)
 using Users.API.Exceptions;     // Importa tus excepciones personalizadas
+using Microsoft.Extensions.Logging;
+using Microsoft.Data.Sqlite;
+using Dapper;
+using System.Data;
+using Users.API.Repositories;
 
 namespace Users.API.Extensions;
 
 public static class UsersEndpoints
 {
-    // Método de extensión: permite usar app.MapUsersEndpoints() en Program.cs
+ 
     public static void MapUsersEndpoints(this WebApplication app)
     {
-        var users = new List<User>(); // Lista en memoria (simula base de datos)
-
         // =========================
         // REGISTER
         // =========================
-        app.MapPost("/api/users/register", (RegisterRequest req) =>
+        app.MapPost("/api/users/register", async (RegisterRequest req, ILogger<Program> logger, UserRepository repo) =>
         {
-            // 🔴 Validación de datos → USR-002
-            if (string.IsNullOrWhiteSpace(req.Email) ||
-                string.IsNullOrWhiteSpace(req.Password) ||
-                string.IsNullOrWhiteSpace(req.Nombre))
+            // Log de auditoría: inicio de trámite
+            logger.LogInformation("Intento de registro para el email: {Email}", req.Email);
+
+            // 🔴 Validación de datos -> USR-002
+            if (string.IsNullOrWhiteSpace(req.Email) || string.IsNullOrWhiteSpace(req.Password) ||
+                string.IsNullOrWhiteSpace(req.Nombre) || string.IsNullOrWhiteSpace(req.Apellido))
             {
-                // Lanza excepción que tu handler convierte en HTTP 400
+                logger.LogWarning("Registro rechazado: Datos incompletos para {Email}", req.Email);
                 throw new ValidationException("USR-002", "Los datos del usuario son inválidos.");
             }
 
-            // 🔴 Validar email duplicado → USR-001
-            if (users.Any(u => u.Email == req.Email))
+            if (!req.Email.Contains("@"))
             {
-                // Si ya existe ese email, lanza error de negocio
+                logger.LogWarning("Registro rechazado: Formato de email inválido ({Email})", req.Email);
+                throw new ValidationException("USR-002", "El formato del email es inválido.");
+            }
+
+            // 🔴 Validar email duplicado -> USR-001 (Versión SQL)
+
+            // Preparamos la consulta: buscamos si existe un usuario con ese email
+            // Usamos @Email para evitar ataques de SQL Injection
+            var sqlCheck = "SELECT 1 FROM Users WHERE Email = @Email LIMIT 1";
+
+            // Ejecutamos la consulta de forma asíncrona
+            // Si no encuentra nada, 'existe' será null
+            var existe = await db.QueryFirstOrDefaultAsync<int?>(sqlCheck, new { Email = req.Email });
+
+            if (existe != null)
+            {
+                // Si entramos acá, es porque el SELECT encontró una fila
+                logger.LogWarning("Registro fallido: El email {Email} ya se encuentra en el sistema.", req.Email);
                 throw new BusinessRuleException("USR-001", $"El email '{req.Email}' ya está registrado.");
             }
 
-            // Crear usuario (modelo interno)
+
             var user = new User
             {
                 Nombre = req.Nombre,
                 Apellido = req.Apellido,
                 Email = req.Email,
-
-                // convierte contraseña en un hash
-               
+                FechaRegistro = DateTime.UtcNow,
+                Activo = true,
+                IntentosFallidos = 0,
+                BloqueadoPorFraude = false,
                 PasswordHash = PasswordHelper.HashPassword(req.Password)
             };
 
-            users.Add(user); // Guarda el usuario en la lista
+            // Cambio: Insertar en SQLite
+            const string sql = @"
+        INSERT INTO Users (Id, Nombre, Apellido, Email, PasswordHash, FechaRegistro, Activo, IntentosFallidos, BloqueadoPorFraude)
+        VALUES (@Id, @Nombre, @Apellido, @Email, @PasswordHash, @FechaRegistro, @Activo, @IntentosFallidos, @BloqueadoPorFraude)";
 
-            // Construir respuesta SIN password (DTO)
-            var response = new UserResponse(
-                user.Id,
-                user.Nombre,
-                user.Apellido,
-                user.Email,
-                user.FechaRegistro,
-                user.Activo
-            );
+            await db.ExecuteAsync(sql, user);
 
-            // Devuelve 201 Created con el usuario creado
-            return Results.Created("/api/users/register", response);
+            logger.LogInformation("Usuario guardado en SQLite con ID: {UserId}", user.Id);
+            return Results.Created($"/api/users/{user.Id}", new UserResponse(user.Id, user.Nombre, user.Apellido, user.Email, user.FechaRegistro, user.Activo));
+
+
         })
-        .WithTags("Users"); // Agrupa en Swagger
+        .WithTags("Users");
 
         // =========================
         // LOGIN
         // =========================
-            // Busca usuario por email
-            app.MapPost("/api/users/login", (LoginRequest req) =>
+        app.MapPost("/api/users/login", async (LoginRequest req, UserRepository repo, ILogger<Program> logger) =>
+        {
+
+            // EXPLICACIÓN: Buscamos al usuario por Email para validar sus credenciales.
+            var user = await repo.GetByEmailAsync(req.Email);
+ 
+            // 🔴 Usuario inexistente
+            if (user is null)
             {
-                var user = users.FirstOrDefault(u => u.Email == req.Email);
+                logger.LogWarning("Login fallido: El usuario {Email} no existe.", req.Email);
+                throw new BusinessRuleException("USR-003", "Credenciales incorrectas.");
+            }
 
-                // Usuario inexistente → credenciales incorrectas
-                if (user is null)
+            // 🔴 Bloqueo por Fraude
+            if (user.BloqueadoPorFraude)
+            {
+                logger.LogCritical("ACCESO DENEGADO: El usuario {Email} intentó ingresar pero está marcado por FRAUDE.", req.Email);
+                throw new BusinessRuleException("USR-005", "Su cuenta fue suspendida por razones de seguridad.");
+            }
+
+            // 🔴 Bloqueo por Intentos
+            if (!user.Activo)
+            {
+                logger.LogWarning("Intento de acceso a cuenta bloqueada: {Email}", req.Email);
+                throw new BusinessRuleException("USR-004", "Su cuenta fue bloqueada por superar el máximo de intentos fallidos.");
+            }
+
+            // 🔴 Validación de Password
+            if (user.PasswordHash != PasswordHelper.HashPassword(req.Password))
+            {
+                // Incrementar solo una vez y enviar el Id como string a la firma esperada
+                user.IntentosFallidos += 1;
+                await repo.UpdateLoginAttemptsAsync(user.Id.ToString(), user.IntentosFallidos, true);
+
+                logger.LogWarning("Contraseña incorrecta para {Email}. Intento fallido nro: {Intentos}", req.Email, user.IntentosFallidos);
+
+
+                 // Volvemos a chequear si con este fallo llegó al límite
+                var updatedUser = await repo.GetByEmailAsync(req.Email);
+                if (updatedUser!.IntentosFallidos >= 3)
                 {
-                    throw new BusinessRuleException("USR-003", "Credenciales incorrectas.");
+                    await repo.LockAccountAsync(user.Id);
+                    logger.LogCritical("BLOQUEO: Usuario {Email} bloqueado por intentos.", req.Email);
+                    throw new BusinessRuleException("USR-004", "Cuenta bloqueada.");
                 }
 
-                // Bloqueado manualmente por fraude
-                if (user.BloqueadoPorFraude)
-                {
-                    throw new BusinessRuleException("USR-005", "Su cuenta fue suspendida por razones de seguridad.");
-                }
+                throw new BusinessRuleException("USR-003", "Credenciales incorrectas.");
+            }
 
-                // Bloqueado por intentos fallidos
-                if (!user.Activo)
-                {
-                    throw new BusinessRuleException("USR-004", "Su cuenta fue bloqueada por superar el máximo de intentos fallidos.");
-                }
 
-                // Password incorrecta
-                if (user.PasswordHash != PasswordHelper.HashPassword(req.Password))
-                    {
-                    user.IntentosFallidos++;
 
-                    // Si llega a 3 → bloquear
-                    if (user.IntentosFallidos >= 3)
-                    {
-                        user.Activo = false;
+            // ✅ Login exitoso
 
-                        throw new BusinessRuleException(
-                            "USR-004",
-                            "Su cuenta fue bloqueada por superar el máximo de intentos fallidos."
-                        );
-                    }
+            await repo.ResetAttemptsAsync(user.Id);
 
-                    throw new BusinessRuleException("USR-003", "Credenciales incorrectas.");
-                }
+            logger.LogInformation("Login exitoso: {Email}", user.Email);
+            return Results.Ok(new UserResponse(user.Id, user.Nombre, user.Apellido, user.Email, user.FechaRegistro, user.Activo));
 
-                // Login exitoso → resetear contador
-                user.IntentosFallidos = 0;
+        }).WithTags("Users");
 
-                var response = new UserResponse(
-                    user.Id,
-                    user.Nombre,
-                    user.Apellido,
-                    user.Email,
-                    user.FechaRegistro,
-                    user.Activo
-                );
-
-              
-            // Devuelve 200 OK con datos del usuario
-            return Results.Ok(response);
-        })
-        .WithTags("Users"); // Agrupa en Swagger
     }
+    
 }
