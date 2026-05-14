@@ -1,0 +1,29 @@
+﻿using Microsoft.AspNetCore.Diagnostics;
+using Microsoft.AspNetCore.Mvc;
+using Orders.API.Exceptions;
+
+namespace Orders.API.ExceptionHandlers;
+
+public class BusinessRuleExceptionHandler : IExceptionHandler
+{
+    public async ValueTask<bool> TryHandleAsync(HttpContext context,
+        Exception exception, CancellationToken cancellationToken)
+    {
+        if (exception is not BusinessRuleException ex)
+            return false;
+
+        context.Response.StatusCode = StatusCodes.Status422UnprocessableEntity;
+
+        await context.Response.WriteAsJsonAsync(new ProblemDetails
+        {
+            Type = "https://tools.ietf.org/html/rfc4918#section-11.2",
+            Title = "Unprocessable Entity",
+            Status = StatusCodes.Status422UnprocessableEntity,
+            Detail = ex.Message,
+            Instance = context.Request.Path,
+            Extensions = { ["errorCode"] = ex.ErrorCode, ["errorMessage"] = ex.Message }
+        }, cancellationToken);
+
+        return true;
+    }
+}

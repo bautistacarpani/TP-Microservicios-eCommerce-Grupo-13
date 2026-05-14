@@ -1,30 +1,58 @@
 using Serilog;
+using Serilog.Events;
 using Products.API.ExceptionHandlers;
+using Products.API.Services;
+using Products.API;
 
 Log.Logger = new LoggerConfiguration()
-    .WriteTo.Console()
-    .WriteTo.File("logs/products-api.txt", rollingInterval: RollingInterval.Day)
+    .MinimumLevel.Information()
+    .MinimumLevel.Override("Microsoft", LogEventLevel.Warning)
+    .MinimumLevel.Override("Microsoft.AspNetCore.Hosting.Diagnostics", LogEventLevel.Information)
+    .Enrich.FromLogContext()
+    .WriteTo.Logger(lc => lc
+        .Filter.ByIncludingOnly(le => le.Level >= LogEventLevel.Error)
+        .WriteTo.Console(outputTemplate: "[{Timestamp:HH:mm:ss} {Level:u3}] {Message:lj}{NewLine}{Exception}"))
+    .WriteTo.Logger(lc => lc
+        .Filter.ByIncludingOnly(le =>
+        {
+            var esSerilogMiddleware = Serilog.Filters.Matching
+                .FromSource("Serilog.AspNetCore.RequestLoggingMiddleware")(le);
+            if (!esSerilogMiddleware) return false;
+            if (le.Properties.TryGetValue("RequestPath", out var p) &&
+                p is Serilog.Events.ScalarValue s && s.Value is string path)
+                return !path.Contains("/health") && !path.Contains("/swagger");
+            return true;
+        })
+        .WriteTo.File(
+            path: "logs/products-audit.log",
+            outputTemplate: "{Timestamp:yyyy-MM-dd HH:mm:ss} | {RequestMethod} | {RequestPath} | {StatusCode}{NewLine}",
+            rollingInterval: RollingInterval.Day))
     .CreateLogger();
 
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Host.UseSerilog();
 
-// Add services to the container.
+builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 builder.Services.AddHealthChecks();
 
-// Registrar exception handlers
 builder.Services.AddExceptionHandler<NotFoundExceptionHandler>();
 builder.Services.AddExceptionHandler<BusinessRuleExceptionHandler>();
 builder.Services.AddExceptionHandler<ValidationExceptionHandler>();
 builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
 builder.Services.AddProblemDetails();
 
+builder.Services.AddSingleton<ProductRepository>();
+builder.Services.AddSingleton<DatabaseInitializer>();
+
 var app = builder.Build();
 
-// Configure the HTTP request pipeline.
+// Inicializar la base de datos
+using (var scope = app.Services.CreateScope())
+    scope.ServiceProvider.GetRequiredService<DatabaseInitializer>().Initialize();
+
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
@@ -33,8 +61,15 @@ if (app.Environment.IsDevelopment())
 
 app.UseExceptionHandler();
 app.UseHttpsRedirection();
-app.UseSerilogRequestLogging();
+app.UseSerilogRequestLogging(options =>
+{
+    options.GetLevel = (httpContext, _, ex) =>
+        (ex != null) ? LogEventLevel.Error :
+        httpContext.Request.Path.StartsWithSegments("/health")
+            ? LogEventLevel.Verbose : LogEventLevel.Information;
+});
 
+app.MapControllers();
 app.MapHealthChecks("/health");
 app.MapHealthChecks("/health/ready");
 app.MapHealthChecks("/health/live");
