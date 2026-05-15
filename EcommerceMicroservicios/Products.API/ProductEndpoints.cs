@@ -33,9 +33,12 @@ public static class ProductEndpoints
                 throw new ValidationException(ErrorCodes.DatosInvalidos, "Los datos del producto son inválidos.");
 
             if (await repo.ExistsAsync(req.Name, req.Category))
-                throw new BusinessRuleException(ErrorCodes.NombreDuplicado,
-                    $"Ya existe un producto con ese nombre en la categoría '{req.Category}'.");
-
+    return Results.Problem(
+        title: "Conflict",
+        detail: $"Ya existe un producto con ese nombre en la categoría '{req.Category}'.",
+        statusCode: 409,
+        extensions: new Dictionary<string, object?> { ["errorCode"] = "PRD-003", ["errorMessage"] = $"Ya existe un producto con ese nombre en la categoría '{req.Category}'." }
+    );
             var product = await repo.CreateAsync(req);
             return Results.Created($"/api/products/{product.Id}", product);
         })
