@@ -24,19 +24,25 @@ namespace Notifications.API.Models
 
     // Request para crear
    
+    /// <summary>
+    /// Modelo requerido para registrar y enviar una nueva notificación a un usuario.
+    /// </summary>
     public record CreateNotificationRequest(
-    [Required][DefaultValue("00000000-0000-0000-0000-000000000000")] Guid UsuarioId, // Reemplazar por un Guid real al probar
-    [Required][DefaultValue("¡Tu registro en el eCommerce fue exitoso!")] string Mensaje,
-    [Required][DefaultValue("Email")] string Tipo
-);
+        /// <example>00000000-0000-0000-0000-000000000000</example>
+        Guid UsuarioId,
+
+        /// <example>¡Tu registro en el eCommerce fue exitoso!</example>
+        string Mensaje,
+
+        /// <example>Email</example>
+        string Tipo
+    );
 
 
     // Request para actualizar estado
     public record UpdateNotificationStatusRequest(
         string Estado
     );
-
-
 
     // Response
     public record NotificationResponse(

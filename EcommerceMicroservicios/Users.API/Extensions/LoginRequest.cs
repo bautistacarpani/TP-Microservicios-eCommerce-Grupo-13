@@ -9,8 +9,12 @@ using System.ComponentModel.DataAnnotations;
 
 namespace Users.API.Extensions;
 
+/// <summary>
+/// Credenciales requeridas para iniciar sesión en el sistema.
+/// </summary>
 public record LoginRequest(
-    [Required][EmailAddress][DefaultValue("bautista.carpani@example.com")] string Email,
-    [Required][DefaultValue("ClaveSegura123!")] string Password
+    /// <example>bautista.carpani@example.com</example>
+    string Email,
+    /// <example>ClaveSegura123!</example>
+    string Password
 );
-

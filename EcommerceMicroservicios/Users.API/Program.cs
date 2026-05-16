@@ -17,7 +17,18 @@ public partial class Program
 
         // 2. DOCUMENTACIÓN (Swagger con Endpoints Explorer)
         builder.Services.AddEndpointsApiExplorer();
-        builder.Services.AddSwaggerGen(); // Acá podés meter el .AddSwaggerGen(options => ...) del filtro si decidís usarlo
+        builder.Services.AddSwaggerGen(options =>
+        {
+            // Buscamos el archivo XML de documentación que configuramos en el paso 1
+            var xmlFile = $"{System.Reflection.Assembly.GetExecutingAssembly().GetName().Name}.xml";
+            var xmlPath = Path.Combine(AppContext.BaseDirectory, xmlFile);
+
+            if (File.Exists(xmlPath))
+            {
+                options.IncludeXmlComments(xmlPath);
+            }
+        });
+        o
 
         // 3. MANEJO GLOBAL DE EXCEPCIONES
         builder.Services.AddExceptionHandler<ValidationExceptionHandler>();
