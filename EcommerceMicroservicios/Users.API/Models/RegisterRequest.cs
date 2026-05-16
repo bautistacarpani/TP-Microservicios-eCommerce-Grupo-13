@@ -8,11 +8,19 @@ using System.ComponentModel.DataAnnotations;
 
 namespace Users.API.Models;
 
+
+/// <summary>
+/// Modelo requerido para el registro de un nuevo usuario en la plataforma.
+/// </summary>
 public record RegisterRequest(
-    [Required][EmailAddress][DefaultValue("maili@example.com")] string Email,
-    [Required][MinLength(6)][DefaultValue("ClaveSegura123!")] string Password,
-    [Required][DefaultValue("Maria")] string Nombre,
-    [Required][DefaultValue("Vazquez")] string Apellido
+    /// <example>bautista.carpani@example.com</example>
+    string Email,
+    /// <example>ClaveSegura123!</example>
+    string Password,
+    /// <example>Bautista</example>
+    string Nombre,
+    /// <example>Carpani</example>
+    string Apellido
 );
 
 

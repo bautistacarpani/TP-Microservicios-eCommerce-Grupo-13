@@ -1,16 +1,19 @@
-﻿using System;
+﻿using Dapper;
+using k8s.KubeConfigModels;
+using Microsoft.AspNetCore.Builder;             // 🔥 AGREGADO: Para MapPost y extensiones
+using Microsoft.AspNetCore.Http;                // 🔥 AGREGADO: Para StatusCodes y Results
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.Data.Sqlite;
+using Microsoft.Extensions.Logging;
+using System;
 using System.Collections.Generic;
+using System.Data;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
-
+using Users.API.Exceptions;     // Importa tus excepciones personalizadas
 using Users.API.Helpers;
 using Users.API.Models;          // Importa los modelos (User, DTOs)
-using Users.API.Exceptions;     // Importa tus excepciones personalizadas
-using Microsoft.Extensions.Logging;
-using Microsoft.Data.Sqlite;
-using Dapper;
-using System.Data;
 using Users.API.Repositories;
 
 namespace Users.API.Extensions;
@@ -42,23 +45,14 @@ public static class UsersEndpoints
                 throw new ValidationException("USR-002", "El formato del email es inválido.");
             }
 
-            // 🔴 Validar email duplicado -> USR-001 (Versión SQL)
 
-            // Preparamos la consulta: buscamos si existe un usuario con ese email
-            // Usamos @Email para evitar ataques de SQL Injection
-            var sqlCheck = "SELECT 1 FROM Users WHERE Email = @Email LIMIT 1";
-
-            // Ejecutamos la consulta de forma asíncrona
-            // Si no encuentra nada, 'existe' será null
-            var existe = await db.QueryFirstOrDefaultAsync<int?>(sqlCheck, new { Email = req.Email });
-
-            if (existe != null)
+            // Validar email duplicado -> USR-001 usando el repositorio optimizado
+            var existeUsuario = await repo.GetByEmailAsync(req.Email);
+            if (existeUsuario != null)
             {
-                // Si entramos acá, es porque el SELECT encontró una fila
                 logger.LogWarning("Registro fallido: El email {Email} ya se encuentra en el sistema.", req.Email);
                 throw new BusinessRuleException("USR-001", $"El email '{req.Email}' ya está registrado.");
             }
-
 
             var user = new User
             {
@@ -72,23 +66,30 @@ public static class UsersEndpoints
                 PasswordHash = PasswordHelper.HashPassword(req.Password)
             };
 
-            // Cambio: Insertar en SQLite
-            const string sql = @"
-        INSERT INTO Users (Id, Nombre, Apellido, Email, PasswordHash, FechaRegistro, Activo, IntentosFallidos, BloqueadoPorFraude)
-        VALUES (@Id, @Nombre, @Apellido, @Email, @PasswordHash, @FechaRegistro, @Activo, @IntentosFallidos, @BloqueadoPorFraude)";
-
+           
             await repo.CreateAsync(user);
             logger.LogInformation("Usuario guardado en SQLite con ID: {UserId}", user.Id);
 
+            // 1. Capturamos el Correlation ID del request actual ANTES de abrir el hilo secundario Task.Run
+            if (!context.Request.Headers.TryGetValue("X-Correlation-Id", out var correlationId))
+            {
+                correlationId = Guid.NewGuid().ToString(); // Fallback de seguridad
+            }
 
-     // =========================================================================
-    // COMUNICACIÓN INTER-SERVICE: Notificación de Bienvenida (Fuego y Olvido optimizado)
-    // =========================================================================
-    _ = Task.Run(async () =>
+
+            // =========================================================================
+            // COMUNICACIÓN INTER-SERVICE: Notificación de Bienvenida (Fuego y Olvido optimizado)
+            // =========================================================================
+            _ = Task.Run(async () =>
     {
         try
         {
             var httpClient = httpClientFactory.CreateClient("NotificationsClient");
+
+            // 🔥 EXIGENCIA 5.5: Inyectamos el ID en la cabecera HTTP saliente
+            httpClient.DefaultRequestHeaders.Remove("X-Correlation-Id"); // Limpiamos por las dudas
+            httpClient.DefaultRequestHeaders.Add("X-Correlation-Id", correlationId.ToString());
+
 
             // Reutilizamos el DTO de creación de notificaciones que espera la otra API
             var notificationRequest = new
@@ -122,7 +123,10 @@ public static class UsersEndpoints
 
 
         })
-        .WithTags("Users");
+        .WithTags("Users")
+        .Produces<UserResponse>(StatusCodes.Status201Created) // Contrato de Éxito
+        .Produces<ProblemDetails>(StatusCodes.Status400BadRequest) // Contrato de Error (Problem Details del TP)
+        .Produces<ProblemDetails>(StatusCodes.Status409Conflict); 
 
         // =========================
         // LOGIN
@@ -185,7 +189,10 @@ public static class UsersEndpoints
             logger.LogInformation("Login exitoso: {Email}", user.Email);
             return Results.Ok(new UserResponse(user.Id, user.Nombre, user.Apellido, user.Email, user.FechaRegistro, user.Activo));
 
-        }).WithTags("Users");
+        }).WithTags("Users")
+        .Produces<UserResponse>(StatusCodes.Status200OK) // Contrato de Éxito
+        .Produces<ProblemDetails>(StatusCodes.Status400BadRequest) 
+        .Produces<ProblemDetails>(StatusCodes.Status404NotFound); 
 
     }
     

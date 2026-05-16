@@ -43,6 +43,24 @@ namespace Users.API.Extensions
 
             // 2. Dashboard web visual (Exige el punto 4.5)
             app.MapHealthChecksUI(setup => setup.UIPath = "/health-ui");
+
+
+            //3. live - evaluar si la app está corriendo
+
+            app.MapHealthChecks("/health/live", new HealthCheckOptions
+            {
+                Predicate = check => check.Tags.Contains("api"),
+                ResponseWriter = UIResponseWriter.WriteHealthCheckUIResponse
+            });
+
+            //4. ready - evaluar si la bd está disponible
+
+            app.MapHealthChecks("/health/ready", new HealthCheckOptions
+            {
+                Predicate = check => check.Tags.Contains("database"),
+                ResponseWriter = UIResponseWriter.WriteHealthCheckUIResponse
+            });
+
         }
 
     }

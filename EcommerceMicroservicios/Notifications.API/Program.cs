@@ -17,7 +17,17 @@ public partial class Program
 
         // 2. DOCUMENTACIÓN (Swagger con Endpoints Explorer)
         builder.Services.AddEndpointsApiExplorer();
-        builder.Services.AddSwaggerGen();
+        builder.Services.AddSwaggerGen(options =>
+        {
+            // Buscamos el archivo XML autogenerado por este microservicio
+            var xmlFile = $"{System.Reflection.Assembly.GetExecutingAssembly().GetName().Name}.xml";
+            var xmlPath = Path.Combine(AppContext.BaseDirectory, xmlFile);
+
+            if (File.Exists(xmlPath))
+            {
+                options.IncludeXmlComments(xmlPath);
+            }
+        });
 
         // 3. MANEJO GLOBAL DE EXCEIPCIONES
         builder.Services.AddExceptionHandler<NotFoundExceptionHandler>();
