@@ -3,6 +3,9 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using System.ComponentModel;
+using System.ComponentModel.DataAnnotations;
+
 
 namespace Notifications.API.Models
 {
@@ -20,16 +23,20 @@ namespace Notifications.API.Models
     }
 
     // Request para crear
+   
     public record CreateNotificationRequest(
-        Guid UsuarioId,
-        string Mensaje,
-        string Tipo
-    );
+    [Required][DefaultValue("00000000-0000-0000-0000-000000000000")] Guid UsuarioId, // Reemplazar por un Guid real al probar
+    [Required][DefaultValue("¡Tu registro en el eCommerce fue exitoso!")] string Mensaje,
+    [Required][DefaultValue("Email")] string Tipo
+);
+
 
     // Request para actualizar estado
     public record UpdateNotificationStatusRequest(
         string Estado
     );
+
+
 
     // Response
     public record NotificationResponse(

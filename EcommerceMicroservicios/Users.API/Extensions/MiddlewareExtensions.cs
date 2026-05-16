@@ -31,15 +31,21 @@ namespace Users.API.Extensions
             
             });
 
-            // EXPLICACIÓN: Exponemos el estado de salud en la ruta /health.
-            // Usamos el Formateador de la cátedra para que sea compatible con Dashboards.
+        }
+
+        public static void UseAppHealthChecks(this WebApplication app)
+             {
+            // 1. Endpoint JSON con estado detallado (Exige el punto 4.5)
             app.MapHealthChecks("/health", new HealthCheckOptions
             {
                 ResponseWriter = UIResponseWriter.WriteHealthCheckUIResponse
             });
 
-
+            // 2. Dashboard web visual (Exige el punto 4.5)
+            app.MapHealthChecksUI(setup => setup.UIPath = "/health-ui");
         }
 
     }
+
+}
 }
