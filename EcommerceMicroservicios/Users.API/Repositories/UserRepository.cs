@@ -23,6 +23,16 @@ namespace Users.API.Repositories
                 "SELECT * FROM Users WHERE Email = @Email", new { Email = email });
         }
 
+        public async Task<User?> GetByIdAsync(Guid id) //para conectar con notifications (validar q id usuario exista)
+        {
+            using var conn = CreateConnection();
+            // Buscamos pasando el Guid como string para que matchee perfecto con SQLite
+            return await conn.QueryFirstOrDefaultAsync<User>(
+                "SELECT * FROM Users WHERE Id = @Id LIMIT 1",
+                new { Id = id.ToString() });
+        }
+
+
         public async Task CreateAsync(User user)
         {
             using var conn = CreateConnection();
@@ -53,5 +63,7 @@ namespace Users.API.Repositories
         {
             throw new NotImplementedException();
         }
+
+        
     }
 }

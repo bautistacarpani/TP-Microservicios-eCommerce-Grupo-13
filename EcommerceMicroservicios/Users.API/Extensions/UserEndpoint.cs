@@ -54,7 +54,7 @@ public static class UsersEndpoints
                 throw new BusinessRuleException("USR-001", $"El email '{req.Email}' ya está registrado.");
             }
 
-            var user = new User
+            var user = new Models.User
             {
                 Nombre = req.Nombre,
                 Apellido = req.Apellido,
@@ -126,7 +126,46 @@ public static class UsersEndpoints
         .WithTags("Users")
         .Produces<UserResponse>(StatusCodes.Status201Created) // Contrato de Éxito
         .Produces<ProblemDetails>(StatusCodes.Status400BadRequest) // Contrato de Error (Problem Details del TP)
-        .Produces<ProblemDetails>(StatusCodes.Status409Conflict); 
+        .Produces<ProblemDetails>(StatusCodes.Status409Conflict);
+
+        // Endpoint Pro para validación inter-servicio (Puntos Extra 🚀)
+        app.MapGet("/api/users/{id}/exists", async (
+            Guid id,
+            UserRepository repo,
+            HttpContext context,
+            ILogger<Program> logger) =>
+        {
+            // 1. Intentamos buscar si el usuario existe en la base de datos
+            var user = await repo.GetByIdAsync(id);
+
+            // 2. Extraemos el Correlation ID para los logs estructurados (Punto 5.5)
+            if (!context.Request.Headers.TryGetValue("X-Correlation-Id", out var correlationId))
+            {
+                correlationId = Guid.NewGuid().ToString();
+            }
+
+            if (user == null)
+            {
+                // Logueamos el Warning de forma estructurada para Serilog
+                logger.LogWarning("Validación de existencia fallida. El usuario con ID {UserId} no existe en el sistema. CorrelationID: {CorrelationId}",
+                    id, correlationId);
+
+                // Devolvemos 404 puro (semántico), ideal para consultas rápidas entre APIs
+                return Results.NotFound();
+            }
+
+            logger.LogInformation("Validación de existencia exitosa para el usuario {UserId}. CorrelationID: {CorrelationId}",
+                id, correlationId);
+
+            // Si existe, devolvemos un 200 OK vacío. No hace falta enviar todo el objeto usuario,
+            // ahorramos ancho de banda de red en la comunicación interna.
+            return Results.Ok();
+        })
+        .WithName("CheckUserExistence")
+        .WithTags("Users")
+        .Produces(StatusCodes.Status200OK)
+        .Produces(StatusCodes.Status404NotFound);
+
 
         // =========================
         // LOGIN
