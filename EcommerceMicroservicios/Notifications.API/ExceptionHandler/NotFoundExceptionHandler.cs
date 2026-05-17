@@ -44,15 +44,26 @@ namespace Notifications.API.Handler
                 ? ex.Message
                 : "Recurso de notificación no encontrado";
 
-            await context.Response.WriteAsJsonAsync(new
+            // CORRELATION ID (Punto 5.5) - Captura el ID propagado desde Users.API
+            if (!context.Request.Headers.TryGetValue("X-Correlation-Id", out var correlationId))
             {
-                type = "https://tools.ietf.org/html/rfc7231#section-6.5.4",
-                title = "Not Found",
-                status = 404,
-                detail = detalleSeguro,
-                instance = context.Request.Path.Value,
-                errorCode = ex.ErrorCode,
-                errorMessage = errorMsgSeguro,
+                correlationId = Guid.NewGuid().ToString();
+            }
+
+
+            await context.Response.WriteAsJsonAsync(new ProblemDetails
+            {
+                Type = "https://tools.ietf.org/html/rfc7231#section-6.5.4",
+                Title = "Not Found",
+                Status = 404,
+                Detail = detalleSeguro,
+                Instance = context.Request.Path.Value,
+                Extensions =
+                {
+                    ["correlationId"] = correlationId.ToString(),
+                    ["errorCode"] = ex.ErrorCode,
+                    ["errorMessage"] = errorMsgSeguro,
+                }
             }, cancellationToken: cancellationToken);
 
             return true;
