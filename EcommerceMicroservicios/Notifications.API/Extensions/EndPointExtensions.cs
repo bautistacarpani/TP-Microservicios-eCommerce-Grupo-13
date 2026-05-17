@@ -20,7 +20,12 @@ public static class NotificationEndpoints
         // =========================================================================
         // 1. POST /api/notifications/send
         // =========================================================================
-        app.MapPost("/api/notifications/send", async (CreateNotificationRequest request, NotificationsRepository repo, ILogger<Program> logger) =>
+        app.MapPost("/api/notifications/send", async (
+            CreateNotificationRequest request, 
+            NotificationsRepository repo,
+            ILogger<Program> logger,
+            IHttpClientFactory httpClientFactory,
+            HttpContext context) => // para el correlation ID
         {
             logger.LogInformation("Iniciando proceso de envío de notificación para el usuario: {UsuarioId}", request.UsuarioId);
 
@@ -37,6 +42,49 @@ public static class NotificationEndpoints
                 logger.LogWarning("Validación fallida: Intento de envío a Guid vacío.");
                 throw new NotFoundException("NTF-001", "Usuario no encontrado.");
             }
+
+            // 🔥 NUEVO BLOQUE (PUNTOS EXTRA): Validación Cruzada Dinámica por HTTP 
+            // 1. Extraemos o generamos el Correlation ID para mantener el hilo de trazabilidad (Punto 5.5)
+            if (!context.Request.Headers.TryGetValue("X-Correlation-Id", out var correlationId))
+            {
+                correlationId = Guid.NewGuid().ToString();
+            }
+
+            // 2. Preparamos el cliente HTTP registrado en tu Program.cs
+            var httpClient = httpClientFactory.CreateClient("UsersClient");
+
+            // Propagamos el Correlation ID en la cabecera saliente de la consulta interna (Punto 5.5)
+            httpClient.DefaultRequestHeaders.Remove("X-Correlation-Id");
+            httpClient.DefaultRequestHeaders.Add("X-Correlation-Id", correlationId.ToString());
+
+            try
+            {
+                // Le preguntamos a Users.API si el ID realmente existe en su base de datos
+                var response = await httpClient.GetAsync($"/api/users/{request.UsuarioId}/exists");
+
+                if (!response.IsSuccessStatusCode)
+                {
+                    logger.LogWarning("Validación fallida: El UsuarioId {UsuarioId} no existe en la base de datos de Users.API. CorrelationID: {CorrelationId}",
+                        request.UsuarioId, correlationId);
+
+                    // Reutiliza tu excepción exacta para disparar el código de catálogo NTF-001
+                    throw new NotFoundException("NTF-001", "Usuario no encontrado.");
+                }
+            }
+            catch (NotFoundException)
+            {
+                // Si fue nuestra propia excepción de "Usuario no encontrado", la dejamos pasar para que la ataje el Handler
+                throw;
+            }
+            catch (Exception ex)
+            {
+                // Si falla la comunicación por red o timeout, lo logueamos como advertencia de infraestructura
+                logger.LogError(ex, "Error de comunicación al intentar validar la existencia del usuario {UsuarioId}", request.UsuarioId);
+                // Podés decidir si dejar pasar la notificación o frenarla. Al lanzar, protegés la integridad:
+                throw new BusinessRuleException("SYS-002", "No se pudo verificar la identidad del usuario en este momento.");
+            }
+            // ---------------------------------------------------------------------------------
+           // validación camino feliz
 
             try
             {

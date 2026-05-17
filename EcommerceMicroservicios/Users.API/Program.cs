@@ -28,7 +28,7 @@ public partial class Program
                 options.IncludeXmlComments(xmlPath);
             }
         });
-        o
+        
 
         // 3. MANEJO GLOBAL DE EXCEPCIONES
         builder.Services.AddExceptionHandler<ValidationExceptionHandler>();

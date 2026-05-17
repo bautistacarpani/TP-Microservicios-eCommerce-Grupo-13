@@ -43,6 +43,16 @@ public partial class Program
         // Eliminamos el bloque repetido; esta extensión ya maneja SQLite y APIStatusCheck
         builder.Services.AddAppHealthChecks(builder.Configuration);
 
+
+        // 6. Registrar el cliente HTTP para comunicarse con Users.API (Puntos Extra 🚀)
+        builder.Services.AddHttpClient("UsersClient", client =>
+        {
+            // Usá el puerto real donde corra tu Users.API en local (ej: 5101)
+            client.BaseAddress = new Uri(builder.Configuration["Services:UsersApi"] ?? "http://localhost:5101");
+            client.Timeout = TimeSpan.FromSeconds(5);
+        });
+
+
         // =========================================================================
         // CONSTRUCCIÓN DE LA APLICACIÓN
         // =========================================================================
@@ -77,5 +87,5 @@ public partial class Program
     }
 }
 
-}
+
 
