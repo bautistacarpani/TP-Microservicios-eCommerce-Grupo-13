@@ -36,15 +36,25 @@ namespace Notifications.API.Handler
                 ? exception.Message
                 : "Ocurrió un error interno en el servidor. Intente más tarde.";
 
-            await context.Response.WriteAsJsonAsync(new
+            // CORRELATION ID (Punto 5.5)
+            if (!context.Request.Headers.TryGetValue("X-Correlation-Id", out var correlationId))
             {
-                type = "https://tools.ietf.org/html/rfc7231#section-6.6.1",
-                title = "Internal Server Error",
-                status = 500,
-                detail = detalleError, // <-- Se adapta según el entorno (Consigna 5.2)
-                instance = context.Request.Path.Value,
-                errorCode = "SYS-001",
-                errorMessage = "Error inesperado del sistema."
+                correlationId = Guid.NewGuid().ToString();
+            }
+
+            await context.Response.WriteAsJsonAsync(new ProblemDetails
+            {
+                Type = "https://tools.ietf.org/html/rfc7231#section-6.6.1",
+                Title = "Internal Server Error",
+                Status = 500,
+                Detail = detalleError, // <-- Se adapta según el entorno (Consigna 5.2)
+                Instance = context.Request.Path.Value,
+                Extensions =
+                {
+                    ["errorCode"] = "SYS-001",
+                    ["errorMessage"] = "Error inesperado del sistema.",
+                    ["correlationId"] = correlationId.ToString()
+                }
             }, cancellationToken: cancellationToken);
 
 

@@ -53,15 +53,27 @@ public class NotFoundExceptionHandler : IExceptionHandler
           ? ex.Message
           : "El recurso no encontrado";
 
-        await context.Response.WriteAsJsonAsync(new
+        // CORRELATION ID (Punto 5.5) - Extraer cabecera para adjuntar al error
+        if (!context.Request.Headers.TryGetValue("X-Correlation-Id", out var correlationId))
         {
-            type = "https://tools.ietf.org/html/rfc7231#section-6.5.4",
-            title = "Not Found",
-            status = 404,
-            detail = mensajeDetalle, // <-- Dinámico por entorno
-            instance = context.Request.Path.Value,
-            errorCode = ex.ErrorCode,
-            errorMessage = errorMsgSeguro,
+            correlationId = Guid.NewGuid().ToString();
+        }
+
+
+        await context.Response.WriteAsJsonAsync(new ProblemDetails
+        {
+            Type = "https://tools.ietf.org/html/rfc7231#section-6.5.4",
+            Title = "Not Found",
+            Status = 404,
+            Detail = mensajeDetalle, // <-- Dinámico por entorno
+            Instance = context.Request.Path.Value,
+            Extensions =
+            {
+                ["correlationId"] = correlationId.ToString(), // Agregamos el Correlation ID a la respuesta
+                ["errorCode"] = ex.ErrorCode,
+                ["errorMessage"] = errorMsgSeguro
+            },
+         
         }, cancellationToken: cancellationToken);
 
 

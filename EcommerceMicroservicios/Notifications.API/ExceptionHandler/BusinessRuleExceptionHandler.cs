@@ -36,6 +36,12 @@ namespace Notifications.API.Handler
                 ? ex.Message
                 : "Operación rechazada por reglas de dominio.";
 
+            // 3. CORRELATION ID (Punto 5.5)
+            if (!context.Request.Headers.TryGetValue("X-Correlation-Id", out var correlationId))
+            {
+                correlationId = Guid.NewGuid().ToString();
+            }
+
 
             await context.Response.WriteAsJsonAsync(new ProblemDetails
             {
@@ -47,7 +53,8 @@ namespace Notifications.API.Handler
                 Extensions =
                 {
                     ["errorCode"] = ex.ErrorCode,
-                    ["errorMessage"] = errorMsgSeguro
+                    ["errorMessage"] = errorMsgSeguro,
+                    ["correlationId"] = correlationId.ToString()
                 }
             }, cancellationToken);
 
