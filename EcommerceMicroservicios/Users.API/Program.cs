@@ -33,6 +33,7 @@ public partial class Program
         // 3. MANEJO GLOBAL DE EXCEPCIONES
         builder.Services.AddExceptionHandler<ValidationExceptionHandler>();
         builder.Services.AddExceptionHandler<BusinessRuleExceptionHandler>();
+        builder.Services.AddExceptionHandler<NotFoundExceptionHandler>();
         builder.Services.AddProblemDetails();
 
         // 4. PERSISTENCIA E INFRAESTRUCTURA
