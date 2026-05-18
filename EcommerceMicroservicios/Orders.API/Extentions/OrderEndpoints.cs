@@ -1,5 +1,6 @@
 ﻿using Orders.API.Models;
 using Orders.API.Exceptions;
+using Orders.API.DTOs;
 
 namespace Orders.API.Extensions;
 
@@ -15,15 +16,13 @@ public static class OrderEndpoints
         app.MapPost("/api/orders", (CreateOrderRequest request) =>
         {
             if (!request.Items.Any())
-                throw new BusinessRuleException("ORD-001", "La orden debe tener al menos un item.");
+                throw new BusinessRuleException("ORD-002", "La orden debe tener al menos un item.");
 
-            var orderItems = request.Items.Select(i => new OrderItem
-            {
-                ProductoId = i.ProductoId,
-                Cantidad = i.Cantidad,
-                Nombre = $"Producto {i.ProductoId}", // mock
-                Precio = 100 // mock
-            }).ToList();
+            var orderItems = request.Items.Select(i => new OrderItem(
+                i.ProductoId,
+                i.Cantidad,
+                100  // mock — precio hasta conectar Products API
+      )).ToList();
 
             var order = new Order
             {
@@ -34,7 +33,7 @@ public static class OrderEndpoints
             };
 
             // calcular total
-            order.Total = order.Items.Sum(i => i.Precio * i.Cantidad);
+            order.Total = order.Items.Sum(i => i.PrecioUnitario * i.Cantidad);
 
             orders.Add(order);
 
@@ -49,7 +48,7 @@ public static class OrderEndpoints
             var order = orders.FirstOrDefault(o => o.Id == id);
 
             if (order is null)
-                throw new NotFoundException("ORD-404", "Orden no encontrada.");
+                throw new NotFoundException("ORD-001", "Orden no encontrada.");
 
             return Results.Ok(order);
         });
@@ -62,12 +61,26 @@ public static class OrderEndpoints
             var order = orders.FirstOrDefault(o => o.Id == id);
 
             if (order is null)
-                throw new NotFoundException("ORD-404", "Orden no encontrada.");
+                throw new NotFoundException("ORD-001", "Orden no encontrada.");
 
-            var estadosValidos = new[] { "Pendiente", "Pagada", "Cancelada" };
+            var estadosValidos = new[] { "Pendiente", "Confirmada", "Enviada", "Entregada", "Cancelada" };
 
             if (!estadosValidos.Contains(estado))
-                throw new BusinessRuleException("ORD-002", "Estado inválido.");
+                throw new BusinessRuleException("ORD-006", $"El estado '{estado}' no es válido.");
+           
+            // Transiciones válidas según el enunciado
+            var transiciones = new Dictionary<string, List<string>>
+            {
+                { "Pendiente",  ["Confirmada", "Cancelada"] },
+                { "Confirmada", ["Enviada",    "Cancelada"] },
+                { "Enviada",    ["Entregada"]               },
+                { "Entregada",  []                          },
+                { "Cancelada",  []                          },
+            };
+
+            if (!transiciones[order.Estado].Contains(estado))
+                throw new BusinessRuleException("ORD-006",
+                    $"Una orden en estado '{order.Estado}' no puede cambiar a '{estado}'.");
 
             order.Estado = estado;
 
