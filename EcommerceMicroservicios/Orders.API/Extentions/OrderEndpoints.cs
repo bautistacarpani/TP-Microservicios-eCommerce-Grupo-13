@@ -10,6 +10,15 @@ public static class OrderEndpoints
 
     public static void MapOrderEndpoints(this WebApplication app)
     {
+        // ─── Listar órdenes ──────────────────────────────
+        app.MapGet("/api/orders", (Guid? usuarioId) =>
+        {
+            var resultado = usuarioId.HasValue
+                ? orders.Where(o => o.UsuarioId == usuarioId.Value).ToList()
+                : orders.ToList();
+
+            return Results.Ok(resultado);
+        });
         // ─────────────────────────────
         // Crear orden
         // ─────────────────────────────
@@ -56,35 +65,44 @@ public static class OrderEndpoints
         // ─────────────────────────────
         // Cambiar estado
         // ─────────────────────────────
-        app.MapPut("/api/orders/{id}/status", (Guid id, string estado) =>
+        app.MapPut("/api/orders/{id}/status", (Guid id, UpdateStatusRequest request) =>
         {
             var order = orders.FirstOrDefault(o => o.Id == id);
 
             if (order is null)
                 throw new NotFoundException("ORD-001", "Orden no encontrada.");
 
-            var estadosValidos = new[] { "Pendiente", "Confirmada", "Enviada", "Entregada", "Cancelada" };
-
-            if (!estadosValidos.Contains(estado))
-                throw new BusinessRuleException("ORD-006", $"El estado '{estado}' no es válido.");
-           
-            // Transiciones válidas según el enunciado
-            var transiciones = new Dictionary<string, List<string>>
+            var estadosValidos = new[]
             {
-                { "Pendiente",  ["Confirmada", "Cancelada"] },
-                { "Confirmada", ["Enviada",    "Cancelada"] },
-                { "Enviada",    ["Entregada"]               },
-                { "Entregada",  []                          },
-                { "Cancelada",  []                          },
-            };
+        "Pendiente", "Confirmada", "Enviada", "Entregada", "Cancelada"
+    };
 
-            if (!transiciones[order.Estado].Contains(estado))
+            if (!estadosValidos.Contains(request.Estado))
                 throw new BusinessRuleException("ORD-006",
-                    $"Una orden en estado '{order.Estado}' no puede cambiar a '{estado}'.");
+                    $"El estado '{request.Estado}' no es válido.");
 
-            order.Estado = estado;
+            var transiciones = new Dictionary<string, List<string>>
+    {
+        { "Pendiente",  ["Confirmada", "Cancelada"] },
+        { "Confirmada", ["Enviada",    "Cancelada"] },
+        { "Enviada",    ["Entregada"]               },
+        { "Entregada",  []                          },
+        { "Cancelada",  []                          },
+    };
 
-            return Results.Ok(order);
+            if (!transiciones[order.Estado].Contains(request.Estado))
+                throw new BusinessRuleException("ORD-006",
+                    $"Una orden en estado '{order.Estado}' no puede " +
+                    $"cambiar a '{request.Estado}'.");
+
+            order.Estado = request.Estado;
+            order.FechaActualizacion = DateTime.UtcNow;
+
+            return Results.Ok(new UpdateStatusResponse(
+                order.Id,
+                order.Estado,
+                order.FechaActualizacion.Value
+            ));
         });
     }
 }
