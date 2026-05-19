@@ -12,9 +12,9 @@ namespace Users.API.Extensions;
 /// <summary>
 /// Credenciales requeridas para iniciar sesión en el sistema.
 /// </summary>
-public record LoginRequest(
-    /// <example>bautista.carpani@example.com</example>
-    string Email,
-    /// <example>ClaveSegura123!</example>
-    string Password
-);
+/// <param name="Email">Correo electrónico institucional o personal.</param>
+/// <param name="Password">Contraseña segura en texto plano.</param>
+public record LoginRequest(string Email,string Password);
+
+
+
