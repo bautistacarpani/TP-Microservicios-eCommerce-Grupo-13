@@ -1,8 +1,8 @@
 using Serilog;
 using Serilog.Events;
+using Products.API;
 using Products.API.ExceptionHandlers;
 using Products.API.Services;
-using Products.API;
 
 Log.Logger = new LoggerConfiguration()
     .MinimumLevel.Information()
@@ -36,8 +36,10 @@ builder.Host.UseSerilog();
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
+
 builder.Services.AddHealthChecks()
-    .AddCheck<SqliteHealthCheck>("sqlite-db", tags: new[] { "database" });
+    .AddCheck<SqliteHealthCheck>("sqlite-db", tags: new[] { "database" })
+    .AddCheck("api-status", () => Microsoft.Extensions.Diagnostics.HealthChecks.HealthCheckResult.Healthy(), tags: new[] { "api" });
 
 builder.Services.AddHealthChecksUI(setup =>
 {
@@ -56,7 +58,6 @@ builder.Services.AddSingleton<DatabaseInitializer>();
 
 var app = builder.Build();
 
-// Inicializar la base de datos
 using (var scope = app.Services.CreateScope())
     scope.ServiceProvider.GetRequiredService<DatabaseInitializer>().Initialize();
 
@@ -77,13 +78,22 @@ app.UseSerilogRequestLogging(options =>
 });
 
 app.MapControllers();
+
 app.MapHealthChecks("/health", new Microsoft.AspNetCore.Diagnostics.HealthChecks.HealthCheckOptions
 {
     ResponseWriter = HealthChecks.UI.Client.UIResponseWriter.WriteHealthCheckUIResponse
 });
-app.MapHealthChecks("/health/ready");
-app.MapHealthChecks("/health/live");
 app.MapHealthChecksUI(setup => setup.UIPath = "/health-ui");
+app.MapHealthChecks("/health/live", new Microsoft.AspNetCore.Diagnostics.HealthChecks.HealthCheckOptions
+{
+    Predicate = check => check.Tags.Contains("api"),
+    ResponseWriter = HealthChecks.UI.Client.UIResponseWriter.WriteHealthCheckUIResponse
+});
+app.MapHealthChecks("/health/ready", new Microsoft.AspNetCore.Diagnostics.HealthChecks.HealthCheckOptions
+{
+    Predicate = check => check.Tags.Contains("database"),
+    ResponseWriter = HealthChecks.UI.Client.UIResponseWriter.WriteHealthCheckUIResponse
+});
 
 app.MapProductEndpoints();
 
