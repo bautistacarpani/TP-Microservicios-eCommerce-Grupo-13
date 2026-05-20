@@ -1,108 +1,117 @@
-﻿using Orders.API.Models;
+﻿using Orders.API.DTOs;
 using Orders.API.Exceptions;
-using Orders.API.DTOs;
+using Orders.API.Models;
+using Orders.API.Services;
 
 namespace Orders.API.Extensions;
 
 public static class OrderEndpoints
 {
-    private static readonly List<Order> orders = [];
-
     public static void MapOrderEndpoints(this WebApplication app)
     {
-        // ─── Listar órdenes ──────────────────────────────
-        app.MapGet("/api/orders", (Guid? usuarioId) =>
-        {
-            var resultado = usuarioId.HasValue
-                ? orders.Where(o => o.UsuarioId == usuarioId.Value).ToList()
-                : orders.ToList();
+        var repository = app.Services.GetRequiredService<OrderRepository>();
 
-            return Results.Ok(resultado);
+        // ─── Listar órdenes ───────────────────────────────────
+        app.MapGet("/api/orders", async (Guid? usuarioId) =>
+        {
+            var orders = await repository.GetAllAsync(usuarioId);
+            return Results.Ok(orders.Select(MapToResponse));
         });
-        // ─────────────────────────────
-        // Crear orden
-        // ─────────────────────────────
-        app.MapPost("/api/orders", (CreateOrderRequest request) =>
-        {
-            if (!request.Items.Any())
-                throw new BusinessRuleException("ORD-002", "La orden debe tener al menos un item.");
 
-            var orderItems = request.Items.Select(i => new OrderItem(
+        // ─── Obtener orden por ID ─────────────────────────────
+        app.MapGet("/api/orders/{id}", async (Guid id) =>
+        {
+            var order = await repository.GetByIdAsync(id);
+
+            if (order is null)
+                throw new NotFoundException("ORD-001", "Orden no encontrada.");
+
+            return Results.Ok(MapToResponse(order));
+        });
+
+        // ─── Crear orden ──────────────────────────────────────
+        app.MapPost("/api/orders", async (CreateOrderRequest request) =>
+        {
+            if (request.Items == null || !request.Items.Any())
+                throw new BusinessRuleException("ORD-002",
+                    "La orden debe tener al menos un item.");
+
+            if (request.Items.Any(i => i.Cantidad <= 0))
+                throw new BusinessRuleException("ORD-002",
+                    "La cantidad de cada item debe ser mayor a cero.");
+
+            var items = request.Items.Select(i => new OrderItem(
                 i.ProductoId,
                 i.Cantidad,
-                100  // mock — precio hasta conectar Products API
-      )).ToList();
+                100  // TODO: reemplazar con precio real de Products API
+            )).ToList();
 
             var order = new Order
             {
                 Id = Guid.NewGuid(),
                 UsuarioId = request.UsuarioId,
-                Items = orderItems,
+                Items = items,
                 FechaCreacion = DateTime.UtcNow
             };
 
-            // calcular total
             order.Total = order.Items.Sum(i => i.PrecioUnitario * i.Cantidad);
 
-            orders.Add(order);
+            await repository.CreateAsync(order);
 
-            return Results.Created($"/api/orders/{order.Id}", order);
+            return Results.Created($"/api/orders/{order.Id}", MapToResponse(order));
         });
 
-        // ─────────────────────────────
-        // Obtener orden por ID
-        // ─────────────────────────────
-        app.MapGet("/api/orders/{id}", (Guid id) =>
+        // ─── Cambiar estado ───────────────────────────────────
+        app.MapPut("/api/orders/{id}/status", async (Guid id, UpdateStatusRequest request) =>
         {
-            var order = orders.FirstOrDefault(o => o.Id == id);
-
-            if (order is null)
-                throw new NotFoundException("ORD-001", "Orden no encontrada.");
-
-            return Results.Ok(order);
-        });
-
-        // ─────────────────────────────
-        // Cambiar estado
-        // ─────────────────────────────
-        app.MapPut("/api/orders/{id}/status", (Guid id, UpdateStatusRequest request) =>
-        {
-            var order = orders.FirstOrDefault(o => o.Id == id);
+            var order = await repository.GetByIdAsync(id);
 
             if (order is null)
                 throw new NotFoundException("ORD-001", "Orden no encontrada.");
 
             var estadosValidos = new[]
             {
-        "Pendiente", "Confirmada", "Enviada", "Entregada", "Cancelada"
-    };
+                "Pendiente", "Confirmada", "Enviada", "Entregada", "Cancelada"
+            };
 
             if (!estadosValidos.Contains(request.Estado))
                 throw new BusinessRuleException("ORD-006",
                     $"El estado '{request.Estado}' no es válido.");
 
             var transiciones = new Dictionary<string, List<string>>
-    {
-        { "Pendiente",  ["Confirmada", "Cancelada"] },
-        { "Confirmada", ["Enviada",    "Cancelada"] },
-        { "Enviada",    ["Entregada"]               },
-        { "Entregada",  []                          },
-        { "Cancelada",  []                          },
-    };
+            {
+                { "Pendiente",  ["Confirmada", "Cancelada"] },
+                { "Confirmada", ["Enviada",    "Cancelada"] },
+                { "Enviada",    ["Entregada"]               },
+                { "Entregada",  []                          },
+                { "Cancelada",  []                          },
+            };
 
             if (!transiciones[order.Estado].Contains(request.Estado))
                 throw new BusinessRuleException("ORD-006",
                     $"Una orden en estado '{order.Estado}' no puede " +
                     $"cambiar a '{request.Estado}'.");
 
-            order.Estado = request.Estado;
-            order.FechaActualizacion = DateTime.UtcNow;
+            var updated = await repository.UpdateStatusAsync(id, request.Estado);
 
             return Results.Ok(new UpdateStatusResponse(
-                order.Id,
-                order.Estado,
-                order.FechaActualizacion.Value
+                updated!.Id,
+                updated.Estado,
+                updated.FechaActualizacion!.Value
             ));
         });
     }
+
+    private static OrderResponse MapToResponse(Order order) => new(
+        order.Id,
+        order.UsuarioId,
+        order.Items.Select(i => new OrderItemResponse(
+            i.ProductoId,
+            i.Cantidad,
+            i.PrecioUnitario
+        )).ToList(),
+        order.Total,
+        order.Estado,
+        order.FechaCreacion
+    );
 }

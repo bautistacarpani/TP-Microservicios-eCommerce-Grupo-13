@@ -1,6 +1,9 @@
-using Serilog;
+using Orders.API;
 using Orders.API.ExceptionHandlers;
 using Orders.API.Extensions;
+using Orders.API.Services;
+using Serilog;
+
 
 Log.Logger = new LoggerConfiguration()
     .WriteTo.Console()
@@ -20,7 +23,15 @@ builder.Services.AddExceptionHandler<BusinessRuleExceptionHandler>();
 builder.Services.AddExceptionHandler<ValidationExceptionHandler>();
 builder.Services.AddProblemDetails();
 
+// Persistencia
+builder.Services.AddSingleton<OrderRepository>();
+builder.Services.AddSingleton<DatabaseInitializer>();
+
 var app = builder.Build();
+
+// Inicializar la base de datos
+using (var scope = app.Services.CreateScope())
+    scope.ServiceProvider.GetRequiredService<DatabaseInitializer>().Initialize();
 
 if (app.Environment.IsDevelopment())
 {
