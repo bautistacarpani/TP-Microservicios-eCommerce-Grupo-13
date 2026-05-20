@@ -8,7 +8,7 @@ using Users.API.Repositories;
 
 public partial class Program
 {
-    private static void Main(string[] args)
+    private static async Task Main(string[] args)
     {
         var builder = WebApplication.CreateBuilder(args);
 
@@ -28,13 +28,14 @@ public partial class Program
                 options.IncludeXmlComments(xmlPath);
             }
         });
-        
+
 
         // 3. MANEJO GLOBAL DE EXCEPCIONES
+        builder.Services.AddProblemDetails();
         builder.Services.AddExceptionHandler<ValidationExceptionHandler>();
         builder.Services.AddExceptionHandler<BusinessRuleExceptionHandler>();
         builder.Services.AddExceptionHandler<NotFoundExceptionHandler>();
-        builder.Services.AddProblemDetails();
+       
 
         // 4. PERSISTENCIA E INFRAESTRUCTURA
         builder.Services.AddSingleton<DatabaseInitializer>();
@@ -47,8 +48,10 @@ public partial class Program
         // 6. CLIENTES HTTP (Comunicación Inter-Service)
         builder.Services.AddHttpClient("NotificationsClient", client =>
         {
-            var url = builder.Configuration["ServicesUrls:NotificationsApi"];
-            client.BaseAddress = new Uri(url!);
+            var url = builder.Configuration["ServicesUrls:NotificationsApi"]
+            ?? builder.Configuration["ServicesUrls:NotificationsApi"]
+            ?? "http://localhost:5102"; // Fallback seguro para que nunca sea null
+            client.BaseAddress = new Uri(url);
             client.Timeout = TimeSpan.FromSeconds(5);
         });
 
@@ -62,6 +65,7 @@ public partial class Program
         {
             scope.ServiceProvider.GetRequiredService<DatabaseInitializer>().Initialize();
         }
+       
 
         // 8. PIPELINE DE MIDDLEWARES & RUTAS
         if (app.Environment.IsDevelopment())
@@ -71,10 +75,11 @@ public partial class Program
         }
 
         app.UseHttpsRedirection();
-        app.UseExceptionHandler();
 
         // Middleware de auditoría de logs
         app.UseAppRequestLogging();
+
+        app.UseExceptionHandler(); 
 
         // 9. ENDPOINTS DE NEGOCIO (Users)
         app.MapUsersEndpoints();

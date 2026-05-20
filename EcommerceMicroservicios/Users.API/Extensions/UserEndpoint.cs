@@ -26,7 +26,7 @@ public static class UsersEndpoints
         // =========================
         // REGISTER
         // =========================
-        app.MapPost("/api/users/register", async (RegisterRequest req, ILogger<Program> logger, UserRepository repo, IHttpClientFactory httpClientFactory) => // Inyección directa y optimizada) 
+        app.MapPost("/api/users/register", async (RegisterRequest req, ILogger<Program> logger, UserRepository repo, IHttpClientFactory httpClientFactory, HttpContext context) => // Inyección directa y optimizada) 
         {
             // Log de auditoría: inicio de trámite
             logger.LogInformation("Intento de registro para el email: {Email}", req.Email);
@@ -56,6 +56,7 @@ public static class UsersEndpoints
 
             var user = new Models.User
             {
+                Id = Guid.NewGuid().ToString(), // 🔥 Forzamos string nativo compatible con la DB
                 Nombre = req.Nombre,
                 Apellido = req.Apellido,
                 Email = req.Email,
@@ -130,15 +131,20 @@ public static class UsersEndpoints
 
         // Endpoint Pro para validación inter-servicio (Puntos Extra 🚀)
         app.MapGet("/api/users/{id}/exists", async (
-            Guid id,
+            string id,
             UserRepository repo,
             HttpContext context,
             ILogger<Program> logger) =>
         {
-            // 1. Intentamos buscar si el usuario existe en la base de datos
-            var user = await repo.GetByIdAsync(id);
+            // 1. Intentamos parsear a Guid solo para verificar si el repositorio lo necesita o para pasarlo al método
+            if (!Guid.TryParse(id, out var userGuid))
+            {
+                return Results.BadRequest("El formato del ID es inválido.");
+            }
+            // 2. Intentamos buscar si el usuario existe en la base de datos
+            var user = await repo.GetByIdAsync(userGuid);
 
-            // 2. Extraemos el Correlation ID para los logs estructurados (Punto 5.5)
+            // 3. Extraemos el Correlation ID para los logs estructurados (Punto 5.5)
             if (!context.Request.Headers.TryGetValue("X-Correlation-Id", out var correlationId))
             {
                 correlationId = Guid.NewGuid().ToString();
@@ -202,7 +208,7 @@ public static class UsersEndpoints
             {
                 // Incrementar solo una vez y enviar el Id como string a la firma esperada
                 user.IntentosFallidos += 1;
-                await repo.UpdateLoginAttemptsAsync(user.Id.ToString(), user.IntentosFallidos, true);
+                await repo.UpdateLoginAttemptsAsync(user.Id, user.IntentosFallidos, true);
 
                 logger.LogWarning("Contraseña incorrecta para {Email}. Intento fallido nro: {Intentos}", req.Email, user.IntentosFallidos);
 
@@ -211,10 +217,16 @@ public static class UsersEndpoints
                 var updatedUser = await repo.GetByEmailAsync(req.Email);
                 if (updatedUser!.IntentosFallidos >= 3)
                 {
-                    await repo.LockAccountAsync(user.Id);
+                    // 🔥 CORREGIDO: Parseamos el string de vuelta a Guid para que coincida con lo que espera LockAccountAsync
+                    if (Guid.TryParse(user.Id, out var userGuid))
+                    {
+                        await repo.LockAccountAsync(userGuid);
+                    }
+
                     logger.LogCritical("BLOQUEO: Usuario {Email} bloqueado por intentos.", req.Email);
                     throw new BusinessRuleException("USR-004", "Cuenta bloqueada.");
                 }
+            
 
                 throw new BusinessRuleException("USR-003", "Credenciales incorrectas.");
             }
@@ -223,7 +235,11 @@ public static class UsersEndpoints
 
             // ✅ Login exitoso
 
-            await repo.ResetAttemptsAsync(user.Id);
+            //  Parseamos a Guid para cumplir con la firma original del repositorio
+            if (Guid.TryParse(user.Id, out var successfulGuid))
+            {
+                await repo.ResetAttemptsAsync(successfulGuid);
+            }
 
             logger.LogInformation("Login exitoso: {Email}", user.Email);
             return Results.Ok(new UserResponse(user.Id, user.Nombre, user.Apellido, user.Email, user.FechaRegistro, user.Activo));

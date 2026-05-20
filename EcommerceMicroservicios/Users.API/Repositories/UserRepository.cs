@@ -13,7 +13,7 @@ namespace Users.API.Repositories
     public class UserRepository(IConfiguration configuration)
     {
         // Método privado para crear la conexión, tal como pide la guía
-        private IDbConnection CreateConnection()
+        public IDbConnection CreateConnection()
             => new SqliteConnection(configuration.GetConnectionString("DefaultConnection"));
 
         public async Task<User?> GetByEmailAsync(string email)
@@ -59,11 +59,12 @@ namespace Users.API.Repositories
             await db.ExecuteAsync(sql, new { Id = id.ToString() });
         }
 
-        internal async Task ResetAttemptsAsync(Guid id)
+        // y metemos la consulta real a SQLite pasándole el Guid como string.
+        public async Task ResetAttemptsAsync(Guid id)
         {
-            throw new NotImplementedException();
+            using var conn = CreateConnection();
+            const string sql = "UPDATE Users SET IntentosFallidos = 0 WHERE Id = @Id";
+            await conn.ExecuteAsync(sql, new { Id = id.ToString() });
         }
-
-        
     }
 }

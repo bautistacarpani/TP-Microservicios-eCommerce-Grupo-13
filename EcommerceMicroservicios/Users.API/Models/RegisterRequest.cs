@@ -9,19 +9,15 @@ using System.ComponentModel.DataAnnotations;
 namespace Users.API.Models;
 
 
+
 /// <summary>
-/// Modelo requerido para el registro de un nuevo usuario en la plataforma.
+/// Estructura para el registro de un nuevo usuario.
 /// </summary>
-public record RegisterRequest(
-    /// <example>bautista.carpani@example.com</example>
-    string Email,
-    /// <example>ClaveSegura123!</example>
-    string Password,
-    /// <example>Bautista</example>
-    string Nombre,
-    /// <example>Carpani</example>
-    string Apellido
-);
+/// <param name="Email" example="juan.perez@email.com" >Correo electrónico institucional o personal.</param>
+/// <param name="Password" example="ClaveSegura123!" >Contraseña segura en texto plano.</param>
+/// <param name="Nombre" example="Juan" >Primer nombre del usuario.</param>
+/// <param name="Apellido" example="Perez" >Apellido del usuario.</param>
+public record RegisterRequest(string Email, string Password, string Nombre, string Apellido);
 
 
 
