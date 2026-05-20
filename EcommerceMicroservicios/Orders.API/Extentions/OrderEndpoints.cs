@@ -1,5 +1,6 @@
 ﻿using Orders.API.Models;
 using Orders.API.Exceptions;
+using Orders.API.DTOs;
 
 namespace Orders.API.Extensions;
 
@@ -9,21 +10,28 @@ public static class OrderEndpoints
 
     public static void MapOrderEndpoints(this WebApplication app)
     {
+        // ─── Listar órdenes ──────────────────────────────
+        app.MapGet("/api/orders", (Guid? usuarioId) =>
+        {
+            var resultado = usuarioId.HasValue
+                ? orders.Where(o => o.UsuarioId == usuarioId.Value).ToList()
+                : orders.ToList();
+
+            return Results.Ok(resultado);
+        });
         // ─────────────────────────────
         // Crear orden
         // ─────────────────────────────
         app.MapPost("/api/orders", (CreateOrderRequest request) =>
         {
             if (!request.Items.Any())
-                throw new BusinessRuleException("ORD-001", "La orden debe tener al menos un item.");
+                throw new BusinessRuleException("ORD-002", "La orden debe tener al menos un item.");
 
-            var orderItems = request.Items.Select(i => new OrderItem
-            {
-                ProductoId = i.ProductoId,
-                Cantidad = i.Cantidad,
-                Nombre = $"Producto {i.ProductoId}", // mock
-                Precio = 100 // mock
-            }).ToList();
+            var orderItems = request.Items.Select(i => new OrderItem(
+                i.ProductoId,
+                i.Cantidad,
+                100  // mock — precio hasta conectar Products API
+      )).ToList();
 
             var order = new Order
             {
@@ -34,7 +42,7 @@ public static class OrderEndpoints
             };
 
             // calcular total
-            order.Total = order.Items.Sum(i => i.Precio * i.Cantidad);
+            order.Total = order.Items.Sum(i => i.PrecioUnitario * i.Cantidad);
 
             orders.Add(order);
 
@@ -49,7 +57,7 @@ public static class OrderEndpoints
             var order = orders.FirstOrDefault(o => o.Id == id);
 
             if (order is null)
-                throw new NotFoundException("ORD-404", "Orden no encontrada.");
+                throw new NotFoundException("ORD-001", "Orden no encontrada.");
 
             return Results.Ok(order);
         });
@@ -57,21 +65,44 @@ public static class OrderEndpoints
         // ─────────────────────────────
         // Cambiar estado
         // ─────────────────────────────
-        app.MapPut("/api/orders/{id}/status", (Guid id, string estado) =>
+        app.MapPut("/api/orders/{id}/status", (Guid id, UpdateStatusRequest request) =>
         {
             var order = orders.FirstOrDefault(o => o.Id == id);
 
             if (order is null)
-                throw new NotFoundException("ORD-404", "Orden no encontrada.");
+                throw new NotFoundException("ORD-001", "Orden no encontrada.");
 
-            var estadosValidos = new[] { "Pendiente", "Pagada", "Cancelada" };
+            var estadosValidos = new[]
+            {
+        "Pendiente", "Confirmada", "Enviada", "Entregada", "Cancelada"
+    };
 
-            if (!estadosValidos.Contains(estado))
-                throw new BusinessRuleException("ORD-002", "Estado inválido.");
+            if (!estadosValidos.Contains(request.Estado))
+                throw new BusinessRuleException("ORD-006",
+                    $"El estado '{request.Estado}' no es válido.");
 
-            order.Estado = estado;
+            var transiciones = new Dictionary<string, List<string>>
+    {
+        { "Pendiente",  ["Confirmada", "Cancelada"] },
+        { "Confirmada", ["Enviada",    "Cancelada"] },
+        { "Enviada",    ["Entregada"]               },
+        { "Entregada",  []                          },
+        { "Cancelada",  []                          },
+    };
 
-            return Results.Ok(order);
+            if (!transiciones[order.Estado].Contains(request.Estado))
+                throw new BusinessRuleException("ORD-006",
+                    $"Una orden en estado '{order.Estado}' no puede " +
+                    $"cambiar a '{request.Estado}'.");
+
+            order.Estado = request.Estado;
+            order.FechaActualizacion = DateTime.UtcNow;
+
+            return Results.Ok(new UpdateStatusResponse(
+                order.Id,
+                order.Estado,
+                order.FechaActualizacion.Value
+            ));
         });
     }
 }
