@@ -83,6 +83,7 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseExceptionHandler();
+app.UseMiddleware<CorrelationIdMiddleware>();
 app.UseHttpsRedirection();
 app.UseSerilogRequestLogging(options =>
 {

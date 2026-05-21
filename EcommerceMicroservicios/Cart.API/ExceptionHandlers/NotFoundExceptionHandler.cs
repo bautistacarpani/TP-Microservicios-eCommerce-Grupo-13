@@ -1,47 +1,55 @@
-using Cart.API.Exceptions;
 using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Mvc;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using static System.Net.Mime.MediaTypeNames;
-using static System.Net.WebRequestMethods;
-using Microsoft.AspNetCore.Http;
+using Cart.API.Exceptions;
 
+namespace Cart.API.ExceptionHandlers;
 
-namespace Cart.API.ExceptionHandlers
+public class NotFoundExceptionHandler : IExceptionHandler
 {
-    public class NotFoundExceptionHandler : IExceptionHandler
+    private readonly IWebHostEnvironment _env;
+
+    public NotFoundExceptionHandler(IWebHostEnvironment env) => _env = env;
+
+    public async ValueTask<bool> TryHandleAsync(
+        HttpContext context,
+        Exception exception,
+        CancellationToken cancellationToken)
     {
-        public async ValueTask<bool> TryHandleAsync(
-            HttpContext context,
-            Exception exception,
-            CancellationToken cancellationToken)
+        if (exception is not NotFoundException ex)
+            return false;
+
+        context.Response.StatusCode = StatusCodes.Status404NotFound;
+
+        var logger = context.RequestServices.GetRequiredService<ILogger<NotFoundExceptionHandler>>();
+        logger.LogWarning("Recurso no encontrado en {Endpoint}. Código de Error: {ErrorCode}. Detalle: {Message}",
+            context.Request.Path, ex.ErrorCode, ex.Message);
+
+        var detalle = _env.IsDevelopment()
+            ? ex.Message
+            : "El recurso solicitado no existe o no está disponible.";
+
+        var errorMsg = _env.IsDevelopment()
+            ? ex.Message
+            : "Recurso no encontrado.";
+
+        if (!context.Request.Headers.TryGetValue("X-Correlation-Id", out var correlationId))
+            correlationId = Guid.NewGuid().ToString();
+
+        await context.Response.WriteAsJsonAsync(new ProblemDetails
         {
-            if (exception is not NotFoundException ex)
-                return false;
-
-            context.Response.StatusCode = StatusCodes.Status404NotFound;
-
-            var problem = new ProblemDetails
+            Type = "https://tools.ietf.org/html/rfc7231#section-6.5.4",
+            Title = "Not Found",
+            Status = 404,
+            Detail = detalle,
+            Instance = context.Request.Path.Value,
+            Extensions =
             {
-                Type = "https://tools.ietf.org/html/rfc7231#section-6.5.4",
-                Title = "Not Found",
-                Status = StatusCodes.Status404NotFound,
-                Detail = ex.Message,
-                Instance = context.Request.Path
-            };
+                ["correlationId"] = correlationId.ToString(),
+                ["errorCode"] = ex.ErrorCode,
+                ["errorMessage"] = errorMsg
+            }
+        }, cancellationToken);
 
-            problem.Extensions["errorCode"] = ex.ErrorCode;
-            problem.Extensions["errorMessage"] = ex.Message;
-
-            await context.Response.WriteAsJsonAsync(problem, cancellationToken);
-
-            return true;
-        }
+        return true;
     }
 }
-
-
