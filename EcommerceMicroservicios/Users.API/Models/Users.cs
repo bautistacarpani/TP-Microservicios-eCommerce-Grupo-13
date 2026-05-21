@@ -8,7 +8,7 @@ namespace Users.API.Models
 {
     public record User
     {
-        public Guid Id { get; init; } = Guid.NewGuid();
+        public string Id { get; init; } = Guid.NewGuid().ToString();
 
         public string Nombre { get; init; } = default!;
         public string Apellido { get; init; } = default!;

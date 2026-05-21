@@ -3,6 +3,9 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using System.ComponentModel;
+using System.ComponentModel.DataAnnotations;
+
 
 namespace Notifications.API.Models
 {
@@ -20,11 +23,21 @@ namespace Notifications.API.Models
     }
 
     // Request para crear
+   
+    /// <summary>
+    /// Modelo requerido para registrar y enviar una nueva notificación a un usuario.
+    /// </summary>
     public record CreateNotificationRequest(
+        /// <example>00000000-0000-0000-0000-000000000000</example>
         Guid UsuarioId,
+
+        /// <example>¡Tu registro en el eCommerce fue exitoso!</example>
         string Mensaje,
+
+        /// <example>Email</example>
         string Tipo
     );
+
 
     // Request para actualizar estado
     public record UpdateNotificationStatusRequest(

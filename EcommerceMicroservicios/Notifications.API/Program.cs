@@ -1,54 +1,70 @@
+using System.Data;
+using Microsoft.Data.Sqlite;
 using Notifications.API.Data;
 using Notifications.API.Extensions;
 using Notifications.API.Handler;
-using Serilog;
-using Microsoft.Data.Sqlite;
-using System.Data;
 using Notifications.API.Repositories;
-
+using Serilog;
 
 public partial class Program
 {
     private static void Main(string[] args)
     {
-
         var builder = WebApplication.CreateBuilder(args);
 
-        // Reemplaza el logging por defecto con Serilog
+        // 1. SISTEMA DE LOGS (Serilog)
         builder.AddAppLogging();
-        builder.Services.AddSwaggerGen();
 
-        //  Swagger
+        // 2. DOCUMENTACIÓN (Swagger con Endpoints Explorer)
         builder.Services.AddEndpointsApiExplorer();
-        builder.Services.AddSwaggerGen();
+        builder.Services.AddSwaggerGen(options =>
+        {
+            // Buscamos el archivo XML autogenerado por este microservicio
+            var xmlFile = $"{System.Reflection.Assembly.GetExecutingAssembly().GetName().Name}.xml";
+            var xmlPath = Path.Combine(AppContext.BaseDirectory, xmlFile);
 
-        
+            if (File.Exists(xmlPath))
+            {
+                options.IncludeXmlComments(xmlPath);
+            }
+        });
+
+        // 3. MANEJO GLOBAL DE EXCEIPCIONES
         builder.Services.AddExceptionHandler<NotFoundExceptionHandler>();
         builder.Services.AddExceptionHandler<BusinessRuleExceptionHandler>();
         builder.Services.AddExceptionHandler<BaseExceptionHandler>();
         builder.Services.AddProblemDetails();
-        builder.Services.AddHealthChecks();
-        builder.Services.AddHealthChecks() //para la base de datos
-    .AddSqlite(builder.Configuration.GetConnectionString("DefaultConnection")!,
-               name: "database_sqlite",
-               tags: new[] { "db", "sqlite" });
 
+        // 4. PERSISTENCIA E INFRAESTRUCTURA
         builder.Services.AddSingleton<DatabaseInitializer>();
         builder.Services.AddScoped<NotificationsRepository>();
 
-        // Registramos IDbConnection para que Dapper pueda usarla
-        builder.Services.AddScoped<IDbConnection>(sp => 
-            new SqliteConnection(builder.Configuration.GetConnectionString("DefaultConnection")));
+        // 5. CONFIGURACIÓN ENCAPSULADA DE HEALTH CHECKS (Punto 4.4 del TP)
+        // Eliminamos el bloque repetido; esta extensión ya maneja SQLite y APIStatusCheck
+        builder.Services.AddAppHealthChecks(builder.Configuration);
 
+
+        // 6. Registrar el cliente HTTP para comunicarse con Users.API (Puntos Extra 🚀)
+        builder.Services.AddHttpClient("UsersClient", client =>
+        {
+            // Usá el puerto real donde corra tu Users.API en local (ej: 5101)
+            client.BaseAddress = new Uri(builder.Configuration["Services:UsersApi"] ?? "http://localhost:5101");
+            client.Timeout = TimeSpan.FromSeconds(5);
+        });
+
+
+        // =========================================================================
+        // CONSTRUCCIÓN DE LA APLICACIÓN
+        // =========================================================================
         var app = builder.Build();
 
-        //ejecutamos BD
-        using (var scope = app.Services.CreateScope()) 
-        { 
-            scope.ServiceProvider.GetRequiredService<DatabaseInitializer>().Initialize(); 
+        // 6. INICIALIZACIÓN DE LA BASE DE DATOS SQLITE
+        using (var scope = app.Services.CreateScope())
+        {
+            scope.ServiceProvider.GetRequiredService<DatabaseInitializer>().Initialize();
         }
 
-        // Swagger UI
+        // 7. PIPELINE DE MIDDLEWARES & RUTAS
         if (app.Environment.IsDevelopment())
         {
             app.UseSwagger();
@@ -56,17 +72,20 @@ public partial class Program
         }
 
         app.UseHttpsRedirection();
-
         app.UseExceptionHandler();
+
+        // Middleware de auditoría de logs
         app.UseAppRequestLogging();
 
-        // Endpoints
+        // 8. ENDPOINTS DE NEGOCIO (Notifications)
         app.MapNotificationEndpoints();
-        app.MapHealthChecks("/health");
 
-       
+        // 9. ENDPOINTS DE MONITOREO (Punto 4.5 del TP)
+        app.UseAppHealthChecks();
 
         app.Run();
     }
 }
+
+
 

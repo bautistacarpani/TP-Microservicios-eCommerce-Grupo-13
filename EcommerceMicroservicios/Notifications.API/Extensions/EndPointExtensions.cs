@@ -1,87 +1,142 @@
-﻿using Notifications.API.Exceptions;
-using Notifications.API.Models;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading.Tasks;
+using System.Data;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Mvc;                 // 🔥 AGREGADO: Para mapear el objeto ProblemDetails
 using Microsoft.Extensions.Logging;
-using Dapper; // <-- Necesario para los métodos de extensión SQL
-using System.Data;
-using Notifications.API.Repositories; // <-- Necesario para IDbConnection
+using Notifications.API.Exceptions;
+using Notifications.API.Models;
+using Notifications.API.Repositories;
 
-namespace Notifications.API.Extensions
+namespace Notifications.API.Extensions;
+
+public static class NotificationEndpoints
 {
-    public static class NotificationEndpoints
+    public static void MapNotificationEndpoints(this WebApplication app)
     {
-        // EXPLICACIÓN: Borramos la lista estática porque ahora la "fuente de verdad" es notifications.db
-
-        public static void MapNotificationEndpoints(this WebApplication app)
+        // =========================================================================
+        // 1. POST /api/notifications/send
+        // =========================================================================
+        app.MapPost("/api/notifications/send", async (
+            CreateNotificationRequest request, 
+            NotificationsRepository repo,
+            ILogger<Program> logger,
+            IHttpClientFactory httpClientFactory,
+            HttpContext context) => // para el correlation ID
         {
-            // 1. POST /api/notifications/send
-            // EXPLICACIÓN: Agregamos 'async' y el parámetro 'IDbConnection db'
-            app.MapPost("/api/notifications/send", async (CreateNotificationRequest request, NotificationsRepository repo, ILogger<Program> logger) =>
+            logger.LogInformation("Iniciando proceso de envío de notificación para el usuario: {UsuarioId}", request.UsuarioId);
+
+            // Validaciones de reglas de negocio -> NTF-002
+            if (string.IsNullOrWhiteSpace(request.Mensaje) || string.IsNullOrWhiteSpace(request.Tipo))
             {
-                logger.LogInformation("Iniciando proceso de envío de notificación para el usuario: {UsuarioId}", request.UsuarioId);
+                logger.LogWarning("Validación fallida: Datos incompletos para UsuarioId: {UsuarioId}", request.UsuarioId);
+                throw new BusinessRuleException("NTF-002", "Los datos de la notificación son inválidos.");
+            }
 
-                // Validaciones de reglas de negocio (siguen igual)
-                if (string.IsNullOrWhiteSpace(request.Mensaje) || string.IsNullOrWhiteSpace(request.Tipo))
-                {
-                    logger.LogWarning("Validación fallida: Datos incompletos para UsuarioId: {UsuarioId}", request.UsuarioId);
-                    throw new BusinessRuleException("NTF-002", "Los datos de la notificación son inválidos.");
-                }
+            // Validación de existencia de Usuario -> NTF-001
+            if (request.UsuarioId == Guid.Empty)
+            {
+                logger.LogWarning("Validación fallida: Intento de envío a Guid vacío.");
+                throw new NotFoundException("NTF-001", "Usuario no encontrado.");
+            }
 
-                if (request.UsuarioId == Guid.Empty)
+            // 🔥 NUEVO BLOQUE (PUNTOS EXTRA): Validación Cruzada Dinámica por HTTP 
+            // 1. Extraemos o generamos el Correlation ID para mantener el hilo de trazabilidad (Punto 5.5)
+            if (!context.Request.Headers.TryGetValue("X-Correlation-Id", out var correlationId))
+            {
+                correlationId = Guid.NewGuid().ToString();
+            }
+
+            // 2. Preparamos el cliente HTTP registrado en tu Program.cs
+            var httpClient = httpClientFactory.CreateClient("UsersClient");
+
+            // Propagamos el Correlation ID en la cabecera saliente de la consulta interna (Punto 5.5)
+            httpClient.DefaultRequestHeaders.Remove("X-Correlation-Id");
+            httpClient.DefaultRequestHeaders.Add("X-Correlation-Id", correlationId.ToString());
+
+            try
+            {
+                // Le preguntamos a Users.API si el ID realmente existe en su base de datos
+                var response = await httpClient.GetAsync($"/api/users/{request.UsuarioId}/exists");
+
+                if (!response.IsSuccessStatusCode)
                 {
-                    logger.LogWarning("Validación fallida: Intento de envío a Guid vacío.");
+                    logger.LogWarning("Validación fallida: El UsuarioId {UsuarioId} no existe en la base de datos de Users.API. CorrelationID: {CorrelationId}",
+                        request.UsuarioId, correlationId);
+
+                    // Reutiliza tu excepción exacta para disparar el código de catálogo NTF-001
                     throw new NotFoundException("NTF-001", "Usuario no encontrado.");
                 }
-
-                try
-                {
-                    var notification = new Notification
-                    {
-                        Id = Guid.NewGuid(),
-                        UsuarioId = request.UsuarioId,
-                        Mensaje = request.Mensaje,
-                        Tipo = request.Tipo,
-                        Estado = "Pendiente",
-                        FechaEnvio = DateTime.UtcNow
-                    };
-
-                    // USAMOS EL REPOSITORIO
-                    await repo.CreateAsync(notification);
-
-                    logger.LogInformation("Notificación guardada vía Repositorio. ID: {Id}", notification.Id);
-                    return Results.Created($"/api/notifications/{notification.Id}", notification);
-
-                }
-                catch (Exception ex)
-                {
-                    logger.LogError(ex, "Error crítico inesperado al persistir en DB para el usuario {UsuarioId}", request.UsuarioId);
-                    throw;
-                }
-            });
-
-            // 2. GET /api/notifications/{userId}
-            app.MapGet("/api/notifications/{userId}", async (Guid userId, NotificationsRepository repo, ILogger<Program> logger) =>
+            }
+            catch (NotFoundException)
             {
-                logger.LogInformation("Consultando base de datos para el usuario: {UsuarioId}", userId);
+                // Si fue nuestra propia excepción de "Usuario no encontrado", la dejamos pasar para que la ataje el Handler
+                throw;
+            }
+            catch (Exception ex)
+            {
+                // Si falla la comunicación por red o timeout, lo logueamos como advertencia de infraestructura
+                logger.LogError(ex, "Error de comunicación al intentar validar la existencia del usuario {UsuarioId}", request.UsuarioId);
+                // Podés decidir si dejar pasar la notificación o frenarla. Al lanzar, protegés la integridad:
+                throw new BusinessRuleException("SYS-002", "No se pudo verificar la identidad del usuario en este momento.");
+            }
+            // ---------------------------------------------------------------------------------
+           // validación camino feliz
 
-                var result = await repo.GetByUserIdAsync(userId);
-                var userNotifications = result.ToList();
-
-                if (!userNotifications.Any())
+            try
+            {
+                var notification = new Notification
                 {
-                    logger.LogWarning("No se encontraron registros en SQLite para el usuario: {UsuarioId}", userId);
-                    throw new NotFoundException("NTF-003", "No se encontraron notificaciones para el usuario.");
-                }
+                    Id = Guid.NewGuid(),
+                    UsuarioId = request.UsuarioId,
+                    Mensaje = request.Mensaje,
+                    Tipo = request.Tipo,
+                    Estado = "Pendiente",
+                    FechaEnvio = DateTime.UtcNow
+                };
 
-                logger.LogInformation("Se encontraron {Cantidad} notificaciones en la base de datos.", userNotifications.Count);
+                // Guardamos en la base de datos a través del patrón repositorio
+                await repo.CreateAsync(notification);
 
-                return Results.Ok(userNotifications);
-            });
-        }
+                logger.LogInformation("Notificación guardada vía Repositorio. ID: {Id}", notification.Id);
+                return Results.Created($"/api/notifications/{notification.Id}", notification);
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "Error crítico inesperado al persistir en DB para el usuario {UsuarioId}", request.UsuarioId);
+                throw;
+            }
+        })
+        .WithTags("Notifications") // 🔥 PUNTO 5.1: Agrupación en la UI de Swagger
+        .Produces<Notification>(StatusCodes.Status201Created)       // Ejemplo de éxito
+        .Produces<ProblemDetails>(StatusCodes.Status400BadRequest)   // Ejemplo de error NTF-002
+        .Produces<ProblemDetails>(StatusCodes.Status404NotFound);    // Ejemplo de error NTF-001
+
+        // =========================================================================
+        // 2. GET /api/notifications/{userId}
+        // =========================================================================
+        app.MapGet("/api/notifications/{userId}", async (Guid userId, NotificationsRepository repo, ILogger<Program> logger) =>
+        {
+            logger.LogInformation("Consultando base de datos para el usuario: {UsuarioId}", userId);
+
+            var result = await repo.GetByUserIdAsync(userId);
+            var userNotifications = result.ToList();
+
+            // Validación de historial vacío -> NTF-003
+            if (!userNotifications.Any())
+            {
+                logger.LogWarning("No se encontraron registros en SQLite para el usuario: {UsuarioId}", userId);
+                throw new NotFoundException("NTF-003", "No se encontraron notificaciones para el usuario.");
+            }
+
+            logger.LogInformation("Se encontraron {Cantidad} notificaciones en la base de datos.", userNotifications.Count);
+            return Results.Ok(userNotifications);
+        })
+        .WithTags("Notifications") // 🔥 PUNTO 5.1: Agrupación en la UI de Swagger
+        .Produces<IEnumerable<Notification>>(StatusCodes.Status200OK) // Ejemplo de éxito (Lista)
+        .Produces<ProblemDetails>(StatusCodes.Status404NotFound);             // Ejemplo de error NTF-003
     }
 }
-
