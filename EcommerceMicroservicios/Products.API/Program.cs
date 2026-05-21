@@ -27,6 +27,15 @@ Log.Logger = new LoggerConfiguration()
             path: "logs/products-audit.log",
             outputTemplate: "{Timestamp:yyyy-MM-dd HH:mm:ss} | {RequestMethod} | {RequestPath} | {StatusCode}{NewLine}",
             rollingInterval: RollingInterval.Day))
+// ARCHIVO: logs de negocio (Information y Warning)- AGREGADO
+.WriteTo.Logger(lc => lc
+    .Filter.ByIncludingOnly(le =>
+        le.Level >= LogEventLevel.Information &&
+        le.Level < LogEventLevel.Error)
+    .WriteTo.File(
+        path: "logs/products-business.log",
+        outputTemplate: "{Timestamp:yyyy-MM-dd HH:mm:ss} | {Level:u3} | {Message:lj}{NewLine}",
+        rollingInterval: RollingInterval.Day))
     .CreateLogger();
 
 var builder = WebApplication.CreateBuilder(args);
