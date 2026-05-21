@@ -4,11 +4,16 @@
     <TargetFramework>net8.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
+	  <GenerateDocumentationFile>true</GenerateDocumentationFile>
+	  <NoWarn>$(NoWarn);1591</NoWarn>
+
   </PropertyGroup>
 
   <ItemGroup>
     <PackageReference Include="AspNetCore.HealthChecks.Sqlite" Version="9.0.0" />
+    <PackageReference Include="AspNetCore.HealthChecks.UI" Version="9.0.0" />
     <PackageReference Include="AspNetCore.HealthChecks.UI.Client" Version="9.0.0" />
+    <PackageReference Include="AspNetCore.HealthChecks.UI.InMemory.Storage" Version="9.0.0" />
     <PackageReference Include="Dapper" Version="2.1.72" />
     <PackageReference Include="Microsoft.Data.Sqlite" Version="10.0.7" />
     <PackageReference Include="Serilog.AspNetCore" Version="10.0.0" />
@@ -17,7 +22,13 @@
     <PackageReference Include="Swashbuckle.AspNetCore" Version="6.6.2" />
   </ItemGroup>
 
-  <ItemGroup>
+	<ItemGroup>
+		<None Update="users.db">
+			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+		</None>
+	</ItemGroup>
+
+	<ItemGroup>
     <Folder Include="Logs\" />
   </ItemGroup>
 

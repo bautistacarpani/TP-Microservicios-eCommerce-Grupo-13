@@ -1,14 +1,15 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace Users.API.Exceptions
 {
-    public class BusinessRuleException(string errorCode, string message) : Exception(message)
+    public class BusinessRuleException : Exception
     {
-        public string ErrorCode { get; } = errorCode;
+        public string ErrorCode { get; }
+
+        // Usamos el constructor tradicional para asegurar que el valor se setee sí o sí
+        public BusinessRuleException(string errorCode, string message) : base(message)
+        {
+            ErrorCode = errorCode;
+        }
     }
 }
-
