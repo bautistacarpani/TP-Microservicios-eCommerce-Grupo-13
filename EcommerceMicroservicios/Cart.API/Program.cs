@@ -27,6 +27,15 @@ Log.Logger = new LoggerConfiguration()
             path: "logs/cart-audit.log",
             outputTemplate: "{Timestamp:yyyy-MM-dd HH:mm:ss} | {RequestMethod} | {RequestPath} | {StatusCode}{NewLine}",
             rollingInterval: RollingInterval.Day))
+            // ARCHIVO: logs de negocio (Information y Warning)
+.WriteTo.Logger(lc => lc
+    .Filter.ByIncludingOnly(le =>
+        le.Level >= LogEventLevel.Information &&
+        le.Level < LogEventLevel.Error)
+    .WriteTo.File(
+        path: "logs/cart-business.log",
+        outputTemplate: "{Timestamp:yyyy-MM-dd HH:mm:ss} | {Level:u3} | {Message:lj}{NewLine}",
+        rollingInterval: RollingInterval.Day))
     .CreateLogger();
 
 var builder = WebApplication.CreateBuilder(args);
@@ -35,7 +44,13 @@ builder.Host.UseSerilog();
 
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen();
+builder.Services.AddSwaggerGen(options =>
+{
+    var xmlFile = $"{System.Reflection.Assembly.GetExecutingAssembly().GetName().Name}.xml";
+    var xmlPath = Path.Combine(AppContext.BaseDirectory, xmlFile);
+    if (File.Exists(xmlPath))
+        options.IncludeXmlComments(xmlPath);
+});
 builder.Services.AddHealthChecks()
     .AddCheck<SqliteHealthCheck>("sqlite-db", tags: new[] { "database" })
     .AddCheck("api-status", () => Microsoft.Extensions.Diagnostics.HealthChecks.HealthCheckResult.Healthy(), tags: new[] { "api" });
