@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Mvc;
 using Products.API.Exceptions;
 using Products.API.Models;
 using Products.API.Services;
@@ -12,19 +13,26 @@ public static class ProductEndpoints
             var products = await repo.GetAllAsync(categoria, nombre);
             return Results.Ok(products);
         })
-        .WithTags("Products");
+        .WithTags("Products")
+        .WithSummary("Listar productos")
+        .WithDescription("Devuelve todos los productos. Opcionalmente filtrar por categoría y/o nombre.")
+        .Produces<IEnumerable<Product>>(200)
+        .Produces<ProblemDetails>(500);
 
         // GET by id
         app.MapGet("/api/products/{id}", async (ProductRepository repo, long id) =>
         {
             var product = await repo.GetByIdAsync(id);
-
             if (product is null)
                 throw new NotFoundException(ErrorCodes.ProductoNoEncontrado, "Producto no encontrado.");
-
             return Results.Ok(product);
         })
-        .WithTags("Products");
+        .WithTags("Products")
+        .WithSummary("Obtener producto por ID")
+        .WithDescription("Devuelve el detalle de un producto específico.")
+        .Produces<Product>(200)
+        .Produces<ProblemDetails>(404)
+        .Produces<ProblemDetails>(500);
 
         // POST
         app.MapPost("/api/products", async (ProductRepository repo, CreateProductRequest req) =>
@@ -33,16 +41,23 @@ public static class ProductEndpoints
                 throw new ValidationException(ErrorCodes.DatosInvalidos, "Los datos del producto son inválidos.");
 
             if (await repo.ExistsAsync(req.Name, req.Category))
-    return Results.Problem(
-        title: "Conflict",
-        detail: $"Ya existe un producto con ese nombre en la categoría '{req.Category}'.",
-        statusCode: 409,
-        extensions: new Dictionary<string, object?> { ["errorCode"] = "PRD-003", ["errorMessage"] = $"Ya existe un producto con ese nombre en la categoría '{req.Category}'." }
-    );
+                return Results.Problem(
+                    title: "Conflict",
+                    detail: $"Ya existe un producto con ese nombre en la categoría '{req.Category}'.",
+                    statusCode: 409,
+                    extensions: new Dictionary<string, object?> { ["errorCode"] = "PRD-003", ["errorMessage"] = $"Ya existe un producto con ese nombre en la categoría '{req.Category}'." }
+                );
+
             var product = await repo.CreateAsync(req);
             return Results.Created($"/api/products/{product.Id}", product);
         })
-        .WithTags("Products");
+        .WithTags("Products")
+        .WithSummary("Crear producto")
+        .WithDescription("Crea un nuevo producto en el catálogo.")
+        .Produces<Product>(201)
+        .Produces<ProblemDetails>(400)
+        .Produces<ProblemDetails>(409)
+        .Produces<ProblemDetails>(500);
 
         // PUT
         app.MapPut("/api/products/{id}", async (ProductRepository repo, long id, UpdateProductRequest req) =>
@@ -55,13 +70,24 @@ public static class ProductEndpoints
                 throw new NotFoundException(ErrorCodes.ProductoNoEncontrado, "Producto no encontrado.");
 
             if (await repo.ExistsAsync(req.Name, req.Category, id))
-                throw new BusinessRuleException(ErrorCodes.NombreDuplicado,
-                    $"Ya existe un producto con ese nombre en la categoría '{req.Category}'.");
+                return Results.Problem(
+                    title: "Conflict",
+                    detail: $"Ya existe un producto con ese nombre en la categoría '{req.Category}'.",
+                    statusCode: 409,
+                    extensions: new Dictionary<string, object?> { ["errorCode"] = "PRD-003", ["errorMessage"] = $"Ya existe un producto con ese nombre en la categoría '{req.Category}'." }
+                );
 
             var updated = await repo.UpdateAsync(id, req);
             return Results.Ok(updated);
         })
-        .WithTags("Products");
+        .WithTags("Products")
+        .WithSummary("Actualizar producto")
+        .WithDescription("Actualiza los datos de un producto existente.")
+        .Produces<Product>(200)
+        .Produces<ProblemDetails>(400)
+        .Produces<ProblemDetails>(404)
+        .Produces<ProblemDetails>(409)
+        .Produces<ProblemDetails>(500);
 
         // DELETE
         app.MapDelete("/api/products/{id}", async (ProductRepository repo, long id) =>
@@ -73,6 +99,11 @@ public static class ProductEndpoints
             await repo.DeleteAsync(id);
             return Results.NoContent();
         })
-        .WithTags("Products");
+        .WithTags("Products")
+        .WithSummary("Eliminar producto")
+        .WithDescription("Elimina un producto del catálogo.")
+        .Produces(204)
+        .Produces<ProblemDetails>(404)
+        .Produces<ProblemDetails>(500);
     }
 }
