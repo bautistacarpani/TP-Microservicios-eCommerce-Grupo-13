@@ -19,16 +19,16 @@ public class DatabaseInitializer
         connection.Open();
 
         connection.Execute("""
-            CREATE TABLE IF NOT EXISTS products (
-                id          INTEGER PRIMARY KEY AUTOINCREMENT,
-                name        TEXT    NOT NULL,
-                description TEXT,
-                price       REAL    NOT NULL DEFAULT 0,
-                stock       INTEGER NOT NULL DEFAULT 0,
-                category    TEXT    NOT NULL,
-                created_at  TEXT    NOT NULL DEFAULT (datetime('now')),
-                updated_at  TEXT
-            );
-        """);
+    CREATE TABLE IF NOT EXISTS products (
+        id          TEXT    PRIMARY KEY,
+        name        TEXT    NOT NULL,
+        description TEXT,
+        price       REAL    NOT NULL DEFAULT 0,
+        stock       INTEGER NOT NULL DEFAULT 0,
+        category    TEXT    NOT NULL,
+        created_at  TEXT    NOT NULL DEFAULT (datetime('now')),
+        updated_at  TEXT
+    );
+""");
     }
 }
