@@ -20,7 +20,7 @@ public static class ProductEndpoints
         .Produces<ProblemDetails>(500);
 
         // GET by id
-        app.MapGet("/api/products/{id}", async (ProductRepository repo, long id) =>
+        app.MapGet("/api/products/{id}", async (ProductRepository repo, Guid id) =>
         {
             var product = await repo.GetByIdAsync(id);
             if (product is null)
@@ -60,7 +60,7 @@ public static class ProductEndpoints
         .Produces<ProblemDetails>(500);
 
         // PUT
-        app.MapPut("/api/products/{id}", async (ProductRepository repo, long id, UpdateProductRequest req) =>
+        app.MapPut("/api/products/{id}", async (ProductRepository repo, Guid id, UpdateProductRequest req) =>
         {
             if (string.IsNullOrEmpty(req.Name) || req.Price <= 0 || req.Stock < 0 || string.IsNullOrEmpty(req.Category))
                 throw new ValidationException(ErrorCodes.DatosInvalidos, "Los datos del producto son inválidos.");
@@ -90,7 +90,7 @@ public static class ProductEndpoints
         .Produces<ProblemDetails>(500);
 
         // DELETE
-        app.MapDelete("/api/products/{id}", async (ProductRepository repo, long id) =>
+        app.MapDelete("/api/products/{id}", async (ProductRepository repo, Guid id) =>
         {
             var existing = await repo.GetByIdAsync(id);
             if (existing is null)
