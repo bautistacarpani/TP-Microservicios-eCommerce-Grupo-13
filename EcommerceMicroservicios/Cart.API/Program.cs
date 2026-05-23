@@ -43,6 +43,10 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Host.UseSerilog();
 
 builder.Services.AddControllers();
+builder.Services.AddHttpClient("ProductsClient", client =>
+{
+    client.BaseAddress = new Uri("http://localhost:5046");
+});
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(options =>
 {

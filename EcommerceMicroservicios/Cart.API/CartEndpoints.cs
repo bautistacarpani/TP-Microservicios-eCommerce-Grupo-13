@@ -23,19 +23,41 @@ public static class CartEndpoints
         .Produces<ProblemDetails>(500);
 
         // POST /api/cart/{userId}/items
-        app.MapPost("/api/cart/{userId}/items", async (CartRepository repo, Guid userId, AddToCartRequest req) =>
-        {
-            if (req.Quantity <= 0)
-                throw new ValidationException(ErrorCodes.CantidadInvalida, "Cantidad inválida.");
-            var cart = await repo.UpsertItemAsync(userId, req.ProductId, req.Quantity);
-            return Results.Ok(cart);
-        })
-        .WithTags("Cart")
-        .WithSummary("Agregar producto al carrito")
-        .WithDescription("Agrega un producto al carrito. Si ya existe, suma la cantidad.")
-        .Produces<Cart.API.Models.Cart>(200)
-        .Produces<ProblemDetails>(400)
-        .Produces<ProblemDetails>(500);
+app.MapPost("/api/cart/{userId}/items", async (
+    CartRepository repo,
+    Guid userId,
+    AddToCartRequest req,
+    IHttpClientFactory httpClientFactory,
+    HttpContext context) =>
+{
+    if (req.Quantity <= 0)
+        throw new ValidationException(ErrorCodes.CantidadInvalida, "Cantidad inválida.");
+
+    // Obtener Correlation ID
+    var correlationId = context.Request.Headers["X-Correlation-Id"]
+        .FirstOrDefault() ?? Guid.NewGuid().ToString();
+
+    // Validar que el producto existe en Products.API
+    var httpClient = httpClientFactory.CreateClient("ProductsClient");
+    httpClient.DefaultRequestHeaders.Remove("X-Correlation-Id");
+    httpClient.DefaultRequestHeaders.Add("X-Correlation-Id", correlationId);
+
+    var response = await httpClient.GetAsync($"/api/products/{req.ProductId}");
+
+    if (!response.IsSuccessStatusCode)
+        throw new NotFoundException(ErrorCodes.ProductoNoEncontrado,
+            $"El producto con ID '{req.ProductId}' no existe en el catálogo.");
+
+    var cart = await repo.UpsertItemAsync(userId, req.ProductId, req.Quantity);
+    return Results.Ok(cart);
+})
+.WithTags("Cart")
+.WithSummary("Agregar producto al carrito")
+.WithDescription("Agrega un producto al carrito. Valida que el producto exista en Products.API.")
+.Produces<Cart.API.Models.Cart>(200)
+.Produces<ProblemDetails>(400)
+.Produces<ProblemDetails>(404)
+.Produces<ProblemDetails>(500);
 
         // PUT /api/cart/{userId}/items/{productId}
         app.MapPut("/api/cart/{userId}/items/{productId}", async (CartRepository repo, Guid userId, Guid productId, UpdateCartItemRequest req) =>
