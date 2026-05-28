@@ -37,7 +37,7 @@ public static class NotificationEndpoints
             }
 
             // Validación de existencia de Usuario -> NTF-001
-            if (request.UsuarioId == Guid.Empty)
+            if (string.IsNullOrEmpty(request.UsuarioId))
             {
                 logger.LogWarning("Validación fallida: Intento de envío a Guid vacío.");
                 throw new NotFoundException("NTF-001", "Usuario no encontrado.");
@@ -90,11 +90,12 @@ public static class NotificationEndpoints
             {
                 var notification = new Notification
                 {
-                    Id = Guid.NewGuid(),
+                    Id = Guid.NewGuid().ToString(),
                     UsuarioId = request.UsuarioId,
                     Mensaje = request.Mensaje,
                     Tipo = request.Tipo,
                     Estado = "Pendiente",
+                    Leida = false,
                     FechaEnvio = DateTime.UtcNow
                 };
 
@@ -111,6 +112,8 @@ public static class NotificationEndpoints
             }
         })
         .WithTags("Notifications") // 🔥 PUNTO 5.1: Agrupación en la UI de Swagger
+        .WithSummary("Envía una notificación a un usuario específico.") // 🔥 PUNTO 5.2: Descripción para Swagger
+        .WithDescription("Valida la existencia del usuario y registra una notificación en el sistema") // 🔥 PUNTO 5.2: Descripción detallada para Swagger
         .Produces<Notification>(StatusCodes.Status201Created)       // Ejemplo de éxito
         .Produces<ProblemDetails>(StatusCodes.Status400BadRequest)   // Ejemplo de error NTF-002
         .Produces<ProblemDetails>(StatusCodes.Status404NotFound);    // Ejemplo de error NTF-001
@@ -118,7 +121,7 @@ public static class NotificationEndpoints
         // =========================================================================
         // 2. GET /api/notifications/{userId}
         // =========================================================================
-        app.MapGet("/api/notifications/{userId}", async (Guid userId, NotificationsRepository repo, ILogger<Program> logger) =>
+        app.MapGet("/api/notifications/{userId}", async (string userId, NotificationsRepository repo, ILogger<Program> logger) =>
         {
             logger.LogInformation("Consultando base de datos para el usuario: {UsuarioId}", userId);
 
@@ -133,9 +136,14 @@ public static class NotificationEndpoints
             }
 
             logger.LogInformation("Se encontraron {Cantidad} notificaciones en la base de datos.", userNotifications.Count);
-            return Results.Ok(userNotifications);
+
+            var response = userNotifications.Select(n => new NotificationResponse(n.Id, n.UsuarioId, n.Mensaje, n.Tipo, n.Estado, n.FechaEnvio, n.Leida));
+            return Results.Ok(response);
+       
         })
         .WithTags("Notifications") // 🔥 PUNTO 5.1: Agrupación en la UI de Swagger
+        .WithSummary("Obtiene el historial de notificaciones de un usuario.") // 🔥 PUNTO 5.2: Descripción para Swagger
+        .WithDescription("Consulta la base de datos para devolver todas las notificaciones asociadas a un usuario específico.") // 🔥 PUNTO 5.2: Descripción detallada para Swagger
         .Produces<IEnumerable<Notification>>(StatusCodes.Status200OK) // Ejemplo de éxito (Lista)
         .Produces<ProblemDetails>(StatusCodes.Status404NotFound);             // Ejemplo de error NTF-003
     }

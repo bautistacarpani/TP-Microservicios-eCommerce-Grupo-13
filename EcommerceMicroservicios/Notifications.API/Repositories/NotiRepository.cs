@@ -35,13 +35,23 @@ namespace Notifications.API.Repositories
             await conn.ExecuteAsync(sql, notification);
         }
 
-        public async Task<IEnumerable<Notification>> GetByUserIdAsync(Guid userId)
+        public async Task<IEnumerable<Notification>> GetByUserIdAsync(string userId)
         {
             using var conn = CreateConnection();
             const string sql = "SELECT * FROM Notifications WHERE UsuarioId = @userId";
 
             return await conn.QueryAsync<Notification>(sql, new { userId });
         }
+
+        // 🔥 NUEVO MÉTODO: Para actualizar el estado de lectura en SQLite
+        public async Task UpdateStatusAsync(string id, bool leida)
+        {
+            using var conn = CreateConnection();
+            const string sql = "UPDATE Notifications SET Leida = @Leida WHERE Id = @Id";
+            // En SQLite, los booleanos pueden manejarse como enteros (1 = true, 0 = false)
+            await conn.ExecuteAsync(sql, new { Id = id, Leida = leida ? 1 : 0 });
+        }
+
     }
 }
 
