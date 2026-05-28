@@ -36,6 +36,7 @@ namespace Notifications.API.Data
                     Mensaje     TEXT NOT NULL,
                     Tipo        TEXT NOT NULL,
                     Estado      TEXT NOT NULL,
+                    Leida       INTEGER NOT NULL,
                     FechaEnvio  TEXT NOT NULL
                 );
             """);

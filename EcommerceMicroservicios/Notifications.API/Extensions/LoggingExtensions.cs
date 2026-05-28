@@ -88,19 +88,38 @@ namespace Notifications.API.Extensions
                         // Archivo de auditoría
                         path: "logs/audit.log",
 
-                        // Formato de salida
+                        // Formato de salida con CorrelationId
                         outputTemplate:
-                        "{Timestamp:yyyy-MM-dd HH:mm:ss} | {RequestMethod} | {RequestPath} | {StatusCode}{NewLine}",
+                        "{Timestamp:yyyy-MM-dd HH:mm:ss} | [CorrID: {CorrelationId}] | {RequestMethod} | {RequestPath} | {StatusCode}{NewLine}",
 
                         // Rotación diaria
                         rollingInterval: RollingInterval.Day
                     )
                 )
+                // ============================================
+                // 🔥 NUEVO: ARCHIVO → Logs de Negocio (Punto 5.3)
+                // ============================================
+                .WriteTo.Logger(lc => lc
+                    .Filter.ByIncludingOnly(le =>
+                        le.Level == LogEventLevel.Warning ||
+                        le.Level == LogEventLevel.Error ||
+                        le.Level == LogEventLevel.Fatal)
+                    .WriteTo.File(
+                        path: "logs/notifications-business.log",
+                        outputTemplate:
+                        "[{Timestamp:yyyy-MM-dd HH:mm:ss} {Level:u3}] [CorrID: {CorrelationId}] {Message:lj}{NewLine}{Exception}",
+                        rollingInterval: RollingInterval.Day
+                    )
+                )
+
 
                 .CreateLogger();
 
             // Reemplaza el logging por defecto de ASP.NET
             builder.Host.UseSerilog();
         }
+    
+
     }
-}
+    }
+

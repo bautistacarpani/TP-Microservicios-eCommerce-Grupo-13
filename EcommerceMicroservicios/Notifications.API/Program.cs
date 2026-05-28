@@ -1,10 +1,12 @@
 using System.Data;
 using Microsoft.Data.Sqlite;
+using Notifications.API;
 using Notifications.API.Data;
 using Notifications.API.Extensions;
 using Notifications.API.Handler;
 using Notifications.API.Repositories;
 using Serilog;
+using Serilog.Context;
 
 public partial class Program
 {
@@ -72,10 +74,12 @@ public partial class Program
         }
 
         app.UseHttpsRedirection();
-        app.UseExceptionHandler();
+        app.UseMiddleware<CorrelationIdMiddleware>();
 
         // Middleware de auditoría de logs
         app.UseAppRequestLogging();
+
+        app.UseExceptionHandler();      
 
         // 8. ENDPOINTS DE NEGOCIO (Notifications)
         app.MapNotificationEndpoints();

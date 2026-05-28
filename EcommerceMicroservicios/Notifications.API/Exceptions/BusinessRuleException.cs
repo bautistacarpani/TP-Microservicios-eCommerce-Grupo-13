@@ -6,9 +6,14 @@ using System.Threading.Tasks;
 
 namespace Notifications.API.Exceptions
 {
-    public class BusinessRuleException(string errorCode, string message) : Exception(message)
+    public class BusinessRuleException : Exception
     {
-        public string ErrorCode { get; } = errorCode;
+        public string ErrorCode { get; } 
+
+        public BusinessRuleException (string errorCode, string message) : base(message)
+        {
+            ErrorCode = errorCode;
+        }
         
     }
 
