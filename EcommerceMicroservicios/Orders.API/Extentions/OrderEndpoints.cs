@@ -30,7 +30,10 @@ public static class OrderEndpoints
         });
 
         // ─── Crear orden ──────────────────────────────────────
-        app.MapPost("/api/orders", async (CreateOrderRequest request) =>
+        app.MapPost("/api/orders", async (
+            CreateOrderRequest request,
+            ExternalServicesClient externalServices,
+            HttpContext context) =>
         {
             if (request.Items == null || !request.Items.Any())
                 throw new BusinessRuleException("ORD-002",
@@ -40,11 +43,28 @@ public static class OrderEndpoints
                 throw new BusinessRuleException("ORD-002",
                     "La cantidad de cada item debe ser mayor a cero.");
 
-            var items = request.Items.Select(i => new OrderItem(
-                i.ProductoId,
-                i.Cantidad,
-                100  // TODO: reemplazar con precio real de Products API
-            )).ToList();
+            // Leemos el ID para propagarlo a Products y Users en las llamadas salientes
+            var correlationId = context.Items["X-Correlation-Id"]?.ToString();
+
+            // Verificamos que el usuario existe en Users API → ORD-003
+            await externalServices.VerificarUsuarioAsync(request.UsuarioId, correlationId);
+
+            // Para cada producto verificamos existencia, stock y capturamos el precio real
+            var items = new List<OrderItem>();
+            foreach (var itemRequest in request.Items)
+            {
+                // Lanza ORD-004 si el producto no existe, ORD-005 si no hay stock suficiente
+                var producto = await externalServices.ObtenerYValidarProductoAsync(
+                    itemRequest.ProductoId,
+                    itemRequest.Cantidad,
+                    correlationId);
+
+                items.Add(new OrderItem(
+                    itemRequest.ProductoId,
+                    itemRequest.Cantidad,
+                    producto.Precio  // precio real de Products API, reemplaza el TODO
+                ));
+            }
 
             var order = new Order
             {
