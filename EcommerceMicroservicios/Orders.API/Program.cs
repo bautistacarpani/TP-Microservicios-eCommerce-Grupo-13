@@ -1,10 +1,9 @@
 using Orders.API;
 using Orders.API.ExceptionHandlers;
 using Orders.API.Extensions;
+using Orders.API.Middleware;
 using Orders.API.Services;
 using Serilog;
-using Orders.API.Middleware;
-
 
 Log.Logger = new LoggerConfiguration()
     .WriteTo.Console()
@@ -28,6 +27,20 @@ builder.Services.AddProblemDetails();
 builder.Services.AddSingleton<OrderRepository>();
 builder.Services.AddSingleton<DatabaseInitializer>();
 
+// Comunicación HTTP con otros servicios
+// por esto
+builder.Services.AddHttpClient();
+builder.Services.ConfigureHttpClientDefaults(b =>
+    b.ConfigurePrimaryHttpMessageHandler(() =>
+        new HttpClientHandler
+        {
+            // En desarrollo ignoramos la validación del certificado SSL
+            // porque los servicios usan certificados autofirmados
+            ServerCertificateCustomValidationCallback =
+                HttpClientHandler.DangerousAcceptAnyServerCertificateValidator
+        }));
+builder.Services.AddScoped<ExternalServicesClient>();
+
 var app = builder.Build();
 
 // Inicializar la base de datos
@@ -40,11 +53,13 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
+// Primero que todo: necesita existir antes que cualquier log o error
 app.UseMiddleware<CorrelationIdMiddleware>();
 
 app.UseExceptionHandler();
 app.UseHttpsRedirection();
 app.UseSerilogRequestLogging();
+
 app.MapOrderEndpoints();
 
 app.MapHealthChecks("/health");
