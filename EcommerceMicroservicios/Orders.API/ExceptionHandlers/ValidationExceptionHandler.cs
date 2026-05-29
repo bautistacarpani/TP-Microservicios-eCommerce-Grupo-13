@@ -12,8 +12,9 @@ public class ValidationExceptionHandler : IExceptionHandler
         if (exception is not ValidationException ex)
             return false;
 
-        context.Response.StatusCode = StatusCodes.Status400BadRequest;
+        var correlationId = context.Items["X-Correlation-Id"]?.ToString();
 
+        context.Response.StatusCode = StatusCodes.Status400BadRequest;
         await context.Response.WriteAsJsonAsync(new ProblemDetails
         {
             Type = "https://tools.ietf.org/html/rfc7231#section-6.5.1",
@@ -21,7 +22,12 @@ public class ValidationExceptionHandler : IExceptionHandler
             Status = StatusCodes.Status400BadRequest,
             Detail = ex.Message,
             Instance = context.Request.Path,
-            Extensions = { ["errorCode"] = ex.ErrorCode, ["errorMessage"] = ex.Message }
+            Extensions =
+            {
+                ["errorCode"] = ex.ErrorCode,
+                ["errorMessage"] = ex.Message,
+                ["correlationId"] = correlationId
+            }
         }, cancellationToken);
 
         return true;

@@ -12,8 +12,9 @@ public class BusinessRuleExceptionHandler : IExceptionHandler
         if (exception is not BusinessRuleException ex)
             return false;
 
-        context.Response.StatusCode = StatusCodes.Status422UnprocessableEntity;
+        var correlationId = context.Items["X-Correlation-Id"]?.ToString();
 
+        context.Response.StatusCode = StatusCodes.Status422UnprocessableEntity;
         await context.Response.WriteAsJsonAsync(new ProblemDetails
         {
             Type = "https://tools.ietf.org/html/rfc4918#section-11.2",
@@ -21,7 +22,12 @@ public class BusinessRuleExceptionHandler : IExceptionHandler
             Status = StatusCodes.Status422UnprocessableEntity,
             Detail = ex.Message,
             Instance = context.Request.Path,
-            Extensions = { ["errorCode"] = ex.ErrorCode, ["errorMessage"] = ex.Message }
+            Extensions =
+            {
+                ["errorCode"] = ex.ErrorCode,
+                ["errorMessage"] = ex.Message,
+                ["correlationId"] = correlationId
+            }
         }, cancellationToken);
 
         return true;
