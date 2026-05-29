@@ -125,6 +125,8 @@ public static class UsersEndpoints
 
         })
         .WithTags("Users")
+        .WithSummary("Registra un nuevo usuario en el sistema.")
+        .WithDescription("Este endpoint permite crear una nueva cuenta de usuario. Requiere un email único y una contraseña segura. Al registrarse, el usuario recibirá una notificación de bienvenida.")
         .Produces<UserResponse>(StatusCodes.Status201Created) // Contrato de Éxito
         .Produces<ProblemDetails>(StatusCodes.Status400BadRequest) // Contrato de Error (Problem Details del TP)
         .Produces<ProblemDetails>(StatusCodes.Status409Conflict);
@@ -168,6 +170,8 @@ public static class UsersEndpoints
             return Results.Ok();
         })
         .WithName("CheckUserExistence")
+        .WithSummary("Verifica si un usuario existe en el sistema por su ID.")
+        .WithDescription("Este endpoint es utilizado internamente por otros servicios para validar la existencia de un usuario antes de realizar operaciones relacionadas. Devuelve 200 OK si el usuario existe, o 404 Not Found si no existe.")
         .WithTags("Users")
         .Produces(StatusCodes.Status200OK)
         .Produces(StatusCodes.Status404NotFound);
@@ -245,6 +249,8 @@ public static class UsersEndpoints
             return Results.Ok(new UserResponse(user.Id, user.Nombre, user.Apellido, user.Email, user.FechaRegistro, user.Activo));
 
         }).WithTags("Users")
+        .WithSummary("Permite a un usuario iniciar sesión en el sistema.")
+        .WithDescription("Este endpoint permite a un usuario autenticarse en el sistema utilizando su correo electrónico y contraseña. Devuelve un token de acceso si las credenciales son correctas.")
         .Produces<UserResponse>(StatusCodes.Status200OK) // Contrato de Éxito
         .Produces<ProblemDetails>(StatusCodes.Status400BadRequest) 
         .Produces<ProblemDetails>(StatusCodes.Status404NotFound); 
