@@ -12,8 +12,10 @@ public class NotFoundExceptionHandler : IExceptionHandler
         if (exception is not NotFoundException ex)
             return false;
 
-        context.Response.StatusCode = StatusCodes.Status404NotFound;
+        // Leemos el ID que generó nuestro middleware
+        var correlationId = context.Items["X-Correlation-Id"]?.ToString();
 
+        context.Response.StatusCode = StatusCodes.Status404NotFound;
         await context.Response.WriteAsJsonAsync(new ProblemDetails
         {
             Type = "https://tools.ietf.org/html/rfc7231#section-6.5.4",
@@ -21,7 +23,12 @@ public class NotFoundExceptionHandler : IExceptionHandler
             Status = StatusCodes.Status404NotFound,
             Detail = ex.Message,
             Instance = context.Request.Path,
-            Extensions = { ["errorCode"] = ex.ErrorCode, ["errorMessage"] = ex.Message }
+            Extensions =
+            {
+                ["errorCode"] = ex.ErrorCode,
+                ["errorMessage"] = ex.Message,
+                ["correlationId"] = correlationId  // campo extra que pide el TP
+            }
         }, cancellationToken);
 
         return true;

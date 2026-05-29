@@ -3,6 +3,7 @@ using Orders.API.ExceptionHandlers;
 using Orders.API.Extensions;
 using Orders.API.Services;
 using Serilog;
+using Orders.API.Middleware;
 
 
 Log.Logger = new LoggerConfiguration()
@@ -38,6 +39,8 @@ if (app.Environment.IsDevelopment())
     app.UseSwagger();
     app.UseSwaggerUI();
 }
+
+app.UseMiddleware<CorrelationIdMiddleware>();
 
 app.UseExceptionHandler();
 app.UseHttpsRedirection();
