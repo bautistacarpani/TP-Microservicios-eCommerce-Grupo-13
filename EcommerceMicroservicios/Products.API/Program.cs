@@ -70,6 +70,10 @@ builder.Services.AddProblemDetails();
 
 builder.Services.AddSingleton<ProductRepository>();
 builder.Services.AddSingleton<DatabaseInitializer>();
+builder.Services.AddHttpClient("OrdersClient", client =>
+{
+    client.BaseAddress = new Uri("http://localhost:5016"); // puerto de Orders.API
+});
 
 var app = builder.Build();
 
@@ -111,6 +115,9 @@ app.MapHealthChecks("/health/ready", new Microsoft.AspNetCore.Diagnostics.Health
     ResponseWriter = HealthChecks.UI.Client.UIResponseWriter.WriteHealthCheckUIResponse
 });
 
+
+
 app.MapProductEndpoints();
 
 app.Run();
+
