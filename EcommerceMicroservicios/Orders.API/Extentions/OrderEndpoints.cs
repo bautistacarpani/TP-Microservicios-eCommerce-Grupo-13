@@ -16,7 +16,7 @@ public static class OrderEndpoints
         {
             var orders = await repository.GetAllAsync(usuarioId);
             return Results.Ok(orders.Select(MapToResponse));
-        });
+        }).WithTags("Orders");
 
         // ─── Obtener orden por ID ─────────────────────────────
         app.MapGet("/api/orders/{id}", async (Guid id) =>
@@ -27,7 +27,7 @@ public static class OrderEndpoints
                 throw new NotFoundException("ORD-001", "Orden no encontrada.");
 
             return Results.Ok(MapToResponse(order));
-        });
+        }).WithTags("Orders");
 
         // ─── Crear orden ──────────────────────────────────────
         app.MapPost("/api/orders", async (
@@ -79,7 +79,7 @@ public static class OrderEndpoints
             await repository.CreateAsync(order);
 
             return Results.Created($"/api/orders/{order.Id}", MapToResponse(order));
-        });
+        }).WithTags("Orders");
 
         // ─── Cambiar estado ───────────────────────────────────
         app.MapPut("/api/orders/{id}/status", async (Guid id, UpdateStatusRequest request) =>
@@ -119,7 +119,7 @@ public static class OrderEndpoints
                 updated.Estado,
                 updated.FechaActualizacion!.Value
             ));
-        });
+        }).WithTags("Orders");
 
         // ─── Verificar órdenes activas por producto (uso interno de Products API) ─────
         app.MapGet("/api/orders/producto/{productoId}/tiene-ordenes-activas",
