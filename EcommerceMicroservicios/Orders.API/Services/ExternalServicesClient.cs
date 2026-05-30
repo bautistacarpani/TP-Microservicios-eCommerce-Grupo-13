@@ -86,10 +86,10 @@ public class ProductoResponse
     [JsonPropertyName("id")]
     public Guid Id { get; set; }
 
-    [JsonPropertyName("nombre")]
+    [JsonPropertyName("name")]
     public string Nombre { get; set; } = string.Empty;
 
-    [JsonPropertyName("precio")]
+    [JsonPropertyName("price")]
     public decimal Precio { get; set; }
 
     [JsonPropertyName("stock")]

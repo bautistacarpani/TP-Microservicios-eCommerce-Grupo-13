@@ -88,22 +88,42 @@ public static class ProductEndpoints
         .Produces<ProblemDetails>(404)
         .Produces<ProblemDetails>(409)
         .Produces<ProblemDetails>(500);
-
+        
         // DELETE
-        app.MapDelete("/api/products/{id}", async (ProductRepository repo, Guid id) =>
-        {
-            var existing = await repo.GetByIdAsync(id);
-            if (existing is null)
-                throw new NotFoundException(ErrorCodes.ProductoNoEncontrado, "Producto no encontrado.");
+app.MapDelete("/api/products/{id}", async (
+    ProductRepository repo,
+    Guid id,
+    IHttpClientFactory httpClientFactory,
+    HttpContext context) =>
+{
+    var existing = await repo.GetByIdAsync(id);
+    if (existing is null)
+        throw new NotFoundException(ErrorCodes.ProductoNoEncontrado, "Producto no encontrado.");
 
-            await repo.DeleteAsync(id);
-            return Results.NoContent();
-        })
-        .WithTags("Products")
-        .WithSummary("Eliminar producto")
-        .WithDescription("Elimina un producto del catálogo.")
-        .Produces(204)
-        .Produces<ProblemDetails>(404)
-        .Produces<ProblemDetails>(500);
+    var correlationId = context.Request.Headers["X-Correlation-Id"]
+        .FirstOrDefault() ?? Guid.NewGuid().ToString();
+    var httpClient = httpClientFactory.CreateClient("OrdersClient");
+    httpClient.DefaultRequestHeaders.Add("X-Correlation-Id", correlationId);
+    var response = await httpClient.GetAsync($"/api/orders/producto/{id}/tiene-ordenes-activas");
+
+    if (response.IsSuccessStatusCode)
+    {
+        var body = await response.Content.ReadFromJsonAsync<TieneOrdenesResponse>();
+        if (body?.TieneOrdenesActivas == true)
+            throw new BusinessRuleException(ErrorCodes.ProductoConOrdenesActivas,
+                "El producto tiene órdenes activas y no puede eliminarse.");
+    }
+
+    await repo.DeleteAsync(id);
+    return Results.NoContent();
+})
+.WithTags("Products")
+.WithSummary("Eliminar producto")
+.WithDescription("Elimina un producto del catálogo.")
+.Produces(204)
+.Produces<ProblemDetails>(404)
+.Produces<ProblemDetails>(409)
+.Produces<ProblemDetails>(500);
     }
 }
+public record TieneOrdenesResponse(bool TieneOrdenesActivas);
