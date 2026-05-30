@@ -120,6 +120,15 @@ public static class OrderEndpoints
                 updated.FechaActualizacion!.Value
             ));
         });
+
+        // ─── Verificar órdenes activas por producto (uso interno de Products API) ─────
+        app.MapGet("/api/orders/producto/{productoId}/tiene-ordenes-activas",
+            async (Guid productoId) =>
+            {
+                var tieneOrdenes = await repository.TieneOrdenesActivasAsync(productoId);
+                return Results.Ok(new { tieneOrdenesActivas = tieneOrdenes });
+            })
+            .WithTags("Orders");
     }
 
     private static OrderResponse MapToResponse(Order order) => new(

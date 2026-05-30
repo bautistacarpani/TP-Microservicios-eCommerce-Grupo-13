@@ -131,4 +131,23 @@ public class OrderRepository
             ? null
             : DateTime.Parse((string)row.fecha_actualizacion)
     };
+    
+    // Consulta interna que usa Products API para verificar si puede eliminar un producto
+    public async Task<bool> TieneOrdenesActivasAsync(Guid productoId)
+    {
+        using var conn = CreateConnection();
+
+        var rows = await conn.QueryAsync("""
+        SELECT o.estado 
+        FROM order_items oi
+        JOIN orders o ON o.id = oi.order_id
+        WHERE oi.producto_id = @ProductoId
+    """, new { ProductoId = productoId.ToString() });
+
+        return rows.Any(r =>
+        {
+            var estado = (string)r.estado;
+            return estado == "Pendiente" || estado == "Confirmada";
+        });
+    }
 }
