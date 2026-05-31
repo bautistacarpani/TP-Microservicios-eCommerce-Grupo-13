@@ -167,7 +167,7 @@ public static class UsersEndpoints
 
             // Si existe, devolvemos un 200 OK vacío. No hace falta enviar todo el objeto usuario,
             // ahorramos ancho de banda de red en la comunicación interna.
-            return Results.Ok();
+            return Results.Ok(new { email = user.Email });
         })
         .WithName("CheckUserExistence")
         .WithSummary("Verifica si un usuario existe en el sistema por su ID.")

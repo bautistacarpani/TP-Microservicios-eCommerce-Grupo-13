@@ -51,8 +51,16 @@ namespace Notifications.API.Repositories
             // En SQLite, los booleanos pueden manejarse como enteros (1 = true, 0 = false)
             await conn.ExecuteAsync(sql, new { Id = id, Leida = leida ? 1 : 0 });
         }
+        // Actualiza el estado de envío de la notificación (Enviada / Fallida)
+        public async Task UpdateEstadoAsync(string id, string estado)
+        {
+            using var conn = CreateConnection();
+            const string sql = "UPDATE Notifications SET Estado = @Estado WHERE Id = @Id";
+            await conn.ExecuteAsync(sql, new { Id = id, Estado = estado });
+        }
 
     }
+
 }
 
 
