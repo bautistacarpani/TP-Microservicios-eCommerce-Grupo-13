@@ -1,12 +1,13 @@
-using System.Data;
 using Microsoft.Data.Sqlite;
 using Notifications.API;
 using Notifications.API.Data;
 using Notifications.API.Extensions;
 using Notifications.API.Handler;
 using Notifications.API.Repositories;
+using Notifications.API.Services;
 using Serilog;
 using Serilog.Context;
+using System.Data;
 
 public partial class Program
 {
@@ -40,6 +41,8 @@ public partial class Program
         // 4. PERSISTENCIA E INFRAESTRUCTURA
         builder.Services.AddSingleton<DatabaseInitializer>();
         builder.Services.AddScoped<NotificationsRepository>();
+        builder.Services.AddScoped<EmailService>();
+        builder.Services.AddScoped<UsersClient>();
 
         // 5. CONFIGURACIÓN ENCAPSULADA DE HEALTH CHECKS (Punto 4.4 del TP)
         // Eliminamos el bloque repetido; esta extensión ya maneja SQLite y APIStatusCheck

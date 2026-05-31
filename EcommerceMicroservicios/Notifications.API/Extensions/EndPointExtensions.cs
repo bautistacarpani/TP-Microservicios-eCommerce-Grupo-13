@@ -1,15 +1,16 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
-using System.Data;
-using Microsoft.AspNetCore.Builder;
+﻿using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;                 // 🔥 AGREGADO: Para mapear el objeto ProblemDetails
 using Microsoft.Extensions.Logging;
 using Notifications.API.Exceptions;
 using Notifications.API.Models;
 using Notifications.API.Repositories;
+using Notifications.API.Services;
+using System;
+using System.Collections.Generic;
+using System.Data;
+using System.Linq;
+using System.Threading.Tasks;
 
 namespace Notifications.API.Extensions;
 
@@ -23,6 +24,8 @@ public static class NotificationEndpoints
         app.MapPost("/api/notifications/send", async (
             CreateNotificationRequest request, 
             NotificationsRepository repo,
+            EmailService emailService,// email noti
+            UsersClient usersClient, // email noti
             ILogger<Program> logger,
             IHttpClientFactory httpClientFactory,
             HttpContext context) => // para el correlation ID
@@ -84,8 +87,8 @@ public static class NotificationEndpoints
                 throw new BusinessRuleException("SYS-002", "No se pudo verificar la identidad del usuario en este momento.");
             }
             // ---------------------------------------------------------------------------------
-           // validación camino feliz
 
+            // validación camino feliz
             try
             {
                 var notification = new Notification
@@ -99,10 +102,42 @@ public static class NotificationEndpoints
                     FechaEnvio = DateTime.UtcNow
                 };
 
-                // Guardamos en la base de datos a través del patrón repositorio
+                // Guardamos en BD primero, independientemente del resultado del email
                 await repo.CreateAsync(notification);
+                logger.LogInformation("Notificación guardada en BD. ID: {Id}", notification.Id);
 
-                logger.LogInformation("Notificación guardada vía Repositorio. ID: {Id}", notification.Id);
+                // Intentamos enviar el email solo si el tipo es Email
+                if (request.Tipo == "Email")
+                {
+                    // Obtenemos el email real del usuario desde Users API
+                    var email = await usersClient.ObtenerEmailAsync(
+                        request.UsuarioId,
+                        correlationId.ToString());
+
+                    if (email != null)
+                    {
+                        var emailEnviado = await emailService.EnviarEmailAsync(email, request.Mensaje);
+                        var nuevoEstado = emailEnviado ? "Enviada" : "Fallida";
+                        await repo.UpdateEstadoAsync(notification.Id, nuevoEstado);
+                        notification.Estado = nuevoEstado;
+                        logger.LogInformation("Estado de notificación {Id} actualizado a {Estado}",
+                            notification.Id, nuevoEstado);
+                    }
+                    else
+                    {
+                        // No pudimos obtener el email, marcamos como Fallida
+                        await repo.UpdateEstadoAsync(notification.Id, "Fallida");
+                        notification.Estado = "Fallida";
+                        logger.LogWarning("No se pudo obtener email para usuario {UsuarioId}", request.UsuarioId);
+                    }
+                }
+                else
+                {
+                    // Para Push y SMS simulamos el envío
+                    await repo.UpdateEstadoAsync(notification.Id, "Enviada");
+                    notification.Estado = "Enviada";
+                }
+
                 return Results.Created($"/api/notifications/{notification.Id}", notification);
             }
             catch (Exception ex)
