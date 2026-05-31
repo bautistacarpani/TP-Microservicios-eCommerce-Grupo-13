@@ -27,19 +27,19 @@ public class UsersClient
             if (!string.IsNullOrEmpty(correlationId))
                 client.DefaultRequestHeaders.TryAddWithoutValidation("X-Correlation-Id", correlationId);
 
-            var response = await client.GetAsync($"/api/users/{usuarioId}/exists");
-
-            // Leemos el body una sola vez
-            var body = await response.Content.ReadAsStringAsync();
-            _logger.LogInformation("Users API respondió {StatusCode}: {Body}", response.StatusCode, body);
+            var url = $"api/users/{usuarioId}/exists";
+            Console.WriteLine($">>> Llamando a: {client.BaseAddress}{url}");
+            var response = await client.GetAsync(url);
+            var responseBody = await response.Content.ReadAsStringAsync();
+            Console.WriteLine($">>> Respuesta: {response.StatusCode} - {responseBody}");
 
             if (!response.IsSuccessStatusCode)
                 return null;
 
-            // Parseamos desde el string ya leído
-            var data = System.Text.Json.JsonSerializer.Deserialize<UserExistsResponse>(body,
+            Console.WriteLine($">>> Deserializando: '{responseBody}'");    
+            var data = System.Text.Json.JsonSerializer.Deserialize<UserExistsResponse>(responseBody,
                 new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true });
-
+            Console.WriteLine($">>> Email obtenido: '{data?.Email}'");
             return data?.Email;
         }
         catch (Exception ex)

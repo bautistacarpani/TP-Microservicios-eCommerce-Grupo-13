@@ -51,11 +51,7 @@ namespace Notifications.API.Extensions
 
         public static void UseAppHealthChecks(this WebApplication app)
         {
-            // 1. Endpoint JSON con estado detallado (Exige el punto 4.5)
-            app.MapHealthChecks("/health", new HealthCheckOptions
-            {
-                ResponseWriter = UIResponseWriter.WriteHealthCheckUIResponse
-            });
+           
 
             // 2. Dashboard web visual (Exige el punto 4.5)
             app.MapHealthChecksUI(setup => setup.UIPath = "/health-ui");

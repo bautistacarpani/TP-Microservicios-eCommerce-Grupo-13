@@ -22,10 +22,12 @@ public class EmailService
     {
         try
         {
+            Console.WriteLine($">>> API Key: '{_apiKey?.Substring(0, 10)}...'");
+
             var client = new SendGridClient(_apiKey);
 
             var msg = MailHelper.CreateSingleEmail(
-                from: new EmailAddress("no-reply@ecommerce.com", "ECommerce"),
+                from: new EmailAddress("tpmicroserviciosgrupo5@gmail.com", "ECommerce"),
                 to: new EmailAddress(destinatario),
                 subject: "Notificación de tu orden",
                 plainTextContent: mensaje,
@@ -33,6 +35,9 @@ public class EmailService
             );
 
             var response = await client.SendEmailAsync(msg);
+            
+            var responseBody = await response.Body.ReadAsStringAsync();
+            Console.WriteLine($">>> SendGrid status: {response.StatusCode} - {responseBody}");
 
             if (response.IsSuccessStatusCode)
             {
