@@ -22,7 +22,6 @@ public class EmailService
     {
         try
         {
-            Console.WriteLine($">>> API Key: '{_apiKey?.Substring(0, 10)}...'");
 
             var client = new SendGridClient(_apiKey);
 
@@ -37,7 +36,6 @@ public class EmailService
             var response = await client.SendEmailAsync(msg);
             
             var responseBody = await response.Body.ReadAsStringAsync();
-            Console.WriteLine($">>> SendGrid status: {response.StatusCode} - {responseBody}");
 
             if (response.IsSuccessStatusCode)
             {

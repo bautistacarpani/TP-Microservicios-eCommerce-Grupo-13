@@ -3,7 +3,12 @@ using Microsoft.Data.Sqlite;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 
 namespace Cart.API;
-
+// ══════════════════════════════════════════════════════════════════════
+// SQLITE HEALTH CHECK
+// Verifica que la base de datos SQLite esté disponible y respondiendo.
+// Ejecuta SELECT 1 para confirmar que la conexión es válida.
+// Se expone en /health/ready con el tag "database".
+// ══════════════════════════════════════════════════════════════════════
 public class SqliteHealthCheck : IHealthCheck
 {
     private readonly IConfiguration _config;
