@@ -4,6 +4,11 @@ using Products.API.Exceptions;
 
 namespace Products.API.ExceptionHandlers;
 
+// ══════════════════════════════════════════════════════════════════════
+// VALIDATION EXCEPTION HANDLER
+// Atrapa ValidationException y devuelve HTTP 400.
+// Se dispara cuando los datos del request son inválidos (PRD-002, CRT-004).
+// ══════════════════════════════════════════════════════════════════════
 public class ValidationExceptionHandler : IExceptionHandler
 {
     private readonly IWebHostEnvironment _env;

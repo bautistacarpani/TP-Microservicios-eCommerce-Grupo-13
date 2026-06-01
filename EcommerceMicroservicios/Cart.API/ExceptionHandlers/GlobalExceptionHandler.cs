@@ -2,7 +2,12 @@ using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Cart.API.ExceptionHandlers;
-
+// ══════════════════════════════════════════════════════════════════════
+// GLOBAL EXCEPTION HANDLER
+// Atrapa cualquier excepción no manejada y devuelve HTTP 500 (CRT-005).
+// Es el último handler en la cadena — funciona como red de seguridad.
+// Loguea el error completo para facilitar el diagnóstico.
+// ══════════════════════════════════════════════════════════════════════
 public class GlobalExceptionHandler : IExceptionHandler
 {
     private readonly IWebHostEnvironment _env;

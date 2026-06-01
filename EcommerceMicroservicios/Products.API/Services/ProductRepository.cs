@@ -4,6 +4,14 @@ using Products.API.Models;
 
 namespace Products.API.Services;
 
+// ══════════════════════════════════════════════════════════════════════
+// PRODUCT REPOSITORY
+// Capa de acceso a datos para la entidad Product.
+// Usa Dapper como micro-ORM y SQLite como base de datos.
+// Los IDs son de tipo Guid, guardados como TEXT en SQLite
+// y convertidos manualmente al leer (SQLite no tiene tipo Guid nativo).
+// ══════════════════════════════════════════════════════════════════════
+
 public class ProductRepository
 {
     private readonly string _connectionString;
@@ -15,9 +23,15 @@ public class ProductRepository
             ?? "Data Source=products.db";
         _logger = logger;
     }
-
+    
+    // Crea y devuelve una nueva conexión a SQLite
     private SqliteConnection CreateConnection() => new(_connectionString);
 
+    // ──────────────────────────────────────────────────────────────
+    // CONSULTAS
+    // ──────────────────────────────────────────────────────────────
+    
+    /// <summary>Obtiene todos los productos con filtros opcionales por categoría y nombre.</summary>
     public async Task<IEnumerable<Product>> GetAllAsync(string? category = null, string? name = null)
     {
         _logger.LogInformation("Consultando productos. Filtros: categoria={Category}, nombre={Name}", category, name);
@@ -55,6 +69,7 @@ public class ProductRepository
         return result;
     }
 
+     /// <summary>Obtiene un producto por su ID. Devuelve null si no existe.</summary>
     public async Task<Product?> GetByIdAsync(Guid id)
     {
         _logger.LogInformation("Buscando producto con ID {Id}", id);
@@ -81,7 +96,23 @@ public class ProductRepository
             UpdatedAt = row.UpdatedAt != null ? (string)row.UpdatedAt : null
         };
     }
+    
+    /// <summary>Verifica si ya existe un producto con ese nombre en esa categoría.</summary>
+    public async Task<bool> ExistsAsync(string name, string category, Guid? excludeId = null)
+    {
+        using var conn = CreateConnection();
+        var sql = "SELECT COUNT(*) FROM products WHERE LOWER(name) = LOWER(@Name) AND LOWER(category) = LOWER(@Category)";
+        if (excludeId.HasValue) sql += " AND id != @ExcludeId";
+        var count = await conn.ExecuteScalarAsync<int>(sql, new { Name = name, Category = category, ExcludeId = excludeId?.ToString() });
+        return count > 0;
+    }
 
+
+    // ──────────────────────────────────────────────────────────────
+    // COMANDOS
+    // ──────────────────────────────────────────────────────────────
+    
+    /// <summary>Crea un nuevo producto y lo devuelve con su ID generado.</summary>
     public async Task<Product> CreateAsync(CreateProductRequest req)
     {
         _logger.LogInformation("Creando producto {Name} en categoría {Category}", req.Name, req.Category);
@@ -96,6 +127,7 @@ public class ProductRepository
         return (await GetByIdAsync(id))!;
     }
 
+     /// <summary>Actualiza los datos de un producto existente. Devuelve null si no existe.</summary>
     public async Task<Product?> UpdateAsync(Guid id, UpdateProductRequest req)
     {
         _logger.LogInformation("Actualizando producto con ID {Id}", id);
@@ -117,6 +149,7 @@ public class ProductRepository
         return await GetByIdAsync(id);
     }
 
+     /// <summary>Elimina un producto por su ID. Devuelve true si se eliminó, false si no existía.</summary>
     public async Task<bool> DeleteAsync(Guid id)
     {
         _logger.LogInformation("Eliminando producto con ID {Id}", id);
@@ -132,12 +165,5 @@ public class ProductRepository
         return rows > 0;
     }
 
-    public async Task<bool> ExistsAsync(string name, string category, Guid? excludeId = null)
-    {
-        using var conn = CreateConnection();
-        var sql = "SELECT COUNT(*) FROM products WHERE LOWER(name) = LOWER(@Name) AND LOWER(category) = LOWER(@Category)";
-        if (excludeId.HasValue) sql += " AND id != @ExcludeId";
-        var count = await conn.ExecuteScalarAsync<int>(sql, new { Name = name, Category = category, ExcludeId = excludeId?.ToString() });
-        return count > 0;
-    }
+
 }

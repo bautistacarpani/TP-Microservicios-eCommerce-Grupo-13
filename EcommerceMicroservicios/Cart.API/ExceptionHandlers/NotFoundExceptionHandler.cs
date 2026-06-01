@@ -3,7 +3,12 @@ using Microsoft.AspNetCore.Mvc;
 using Cart.API.Exceptions;
 
 namespace Cart.API.ExceptionHandlers;
-
+// ══════════════════════════════════════════════════════════════════════
+// NOT FOUND EXCEPTION HANDLER
+// Atrapa NotFoundException y devuelve HTTP 404.
+// Se dispara para CRT-001 (carrito no encontrado) y CRT-002 (producto no en carrito).
+// Incluye correlationId en el payload para trazabilidad distribuida.
+// ══════════════════════════════════════════════════════════════════════
 public class NotFoundExceptionHandler : IExceptionHandler
 {
     private readonly IWebHostEnvironment _env;

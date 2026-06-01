@@ -4,6 +4,12 @@ using Products.API.Exceptions;
 
 namespace Products.API.ExceptionHandlers;
 
+// ══════════════════════════════════════════════════════════════════════
+// NOT FOUND EXCEPTION HANDLER
+// Atrapa NotFoundException y devuelve HTTP 404.
+// Incluye el correlationId en el payload para trazabilidad.
+// En producción oculta el detalle técnico del error.
+// ══════════════════════════════════════════════════════════════════════
 public class NotFoundExceptionHandler : IExceptionHandler
 {
     private readonly IWebHostEnvironment _env;
