@@ -28,18 +28,15 @@ public class UsersClient
                 client.DefaultRequestHeaders.TryAddWithoutValidation("X-Correlation-Id", correlationId);
 
             var url = $"api/users/{usuarioId}/exists";
-            Console.WriteLine($">>> Llamando a: {client.BaseAddress}{url}");
             var response = await client.GetAsync(url);
             var responseBody = await response.Content.ReadAsStringAsync();
-            Console.WriteLine($">>> Respuesta: {response.StatusCode} - {responseBody}");
 
             if (!response.IsSuccessStatusCode)
                 return null;
-
-            Console.WriteLine($">>> Deserializando: '{responseBody}'");    
+                
             var data = System.Text.Json.JsonSerializer.Deserialize<UserExistsResponse>(responseBody,
                 new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true });
-            Console.WriteLine($">>> Email obtenido: '{data?.Email}'");
+            
             return data?.Email;
         }
         catch (Exception ex)

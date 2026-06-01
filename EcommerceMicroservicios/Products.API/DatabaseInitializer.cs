@@ -2,7 +2,12 @@ using Dapper;
 using Microsoft.Data.Sqlite;
 
 namespace Products.API;
-
+// ══════════════════════════════════════════════════════════════════════
+// DATABASE INITIALIZER
+// Se ejecuta una sola vez al arrancar el servicio.
+// Crea las tablas en SQLite si no existen (CREATE TABLE IF NOT EXISTS).
+// Registrado como Singleton en Program.cs y llamado en el startup.
+// ══════════════════════════════════════════════════════════════════════
 public class DatabaseInitializer
 {
     private readonly string _connectionString;
