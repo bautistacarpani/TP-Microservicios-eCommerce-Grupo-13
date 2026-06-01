@@ -4,6 +4,10 @@ using Cart.API.ExceptionHandlers;
 using Cart.API.Services;
 using Cart.API;
 
+// ══════════════════════════════════════════════════════════════════════
+// 1. CONFIGURACIÓN DE SERILOG (LOGGING)
+// Triple capa: consola (solo errores) + audit (requests HTTP) + business (logs de negocio)
+// ══════════════════════════════════════════════════════════════════════
 Log.Logger = new LoggerConfiguration()
     .MinimumLevel.Information()
     .MinimumLevel.Override("Microsoft", LogEventLevel.Warning)
@@ -42,11 +46,20 @@ var builder = WebApplication.CreateBuilder(args);
 
 builder.Host.UseSerilog();
 
+// ══════════════════════════════════════════════════════════════════════
+// 2. SERVICIOS — COMUNICACIÓN HTTP ENTRE SERVICIOS
+// Cart.API consulta Products.API para validar existencia de productos
+// ══════════════════════════════════════════════════════════════════════
+
 builder.Services.AddControllers();
 builder.Services.AddHttpClient("ProductsClient", client =>
 {
     client.BaseAddress = new Uri("http://localhost:5046");
 });
+
+// ══════════════════════════════════════════════════════════════════════
+// 3. SERVICIOS — DOCUMENTACIÓN (SWAGGER)
+// ══════════════════════════════════════════════════════════════════════
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(options =>
 {
@@ -55,6 +68,11 @@ builder.Services.AddSwaggerGen(options =>
     if (File.Exists(xmlPath))
         options.IncludeXmlComments(xmlPath);
 });
+
+// ══════════════════════════════════════════════════════════════════════
+// 4. SERVICIOS — HEALTH CHECKS
+// /health (general) | /health/live (api) | /health/ready (database)
+// ══════════════════════════════════════════════════════════════════════
 builder.Services.AddHealthChecks()
     .AddCheck<SqliteHealthCheck>("sqlite-db", tags: new[] { "database" })
     .AddCheck("api-status", () => Microsoft.Extensions.Diagnostics.HealthChecks.HealthCheckResult.Healthy(), tags: new[] { "api" });
@@ -64,26 +82,38 @@ builder.Services.AddHealthChecksUI(setup =>
     setup.AddHealthCheckEndpoint("Cart.API", "/health");
 }).AddInMemoryStorage();
 
+// ══════════════════════════════════════════════════════════════════════
+// 5. SERVICIOS — MANEJO DE ERRORES (IExceptionHandler)
+// Orden importa: del más específico al más genérico
+// ══════════════════════════════════════════════════════════════════════
 builder.Services.AddExceptionHandler<NotFoundExceptionHandler>();
 builder.Services.AddExceptionHandler<BusinessRuleExceptionHandler>();
 builder.Services.AddExceptionHandler<ValidationExceptionHandler>();
 builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
 builder.Services.AddProblemDetails();
 
+// ══════════════════════════════════════════════════════════════════════
+// 6. SERVICIOS — PERSISTENCIA
+// ══════════════════════════════════════════════════════════════════════
 builder.Services.AddSingleton<CartRepository>();
 builder.Services.AddSingleton<DatabaseInitializer>();
 
 var app = builder.Build();
 
+// ══════════════════════════════════════════════════════════════════════
+// 7. INICIALIZACIÓN DE LA BASE DE DATOS
+// ══════════════════════════════════════════════════════════════════════
 using (var scope = app.Services.CreateScope())
     scope.ServiceProvider.GetRequiredService<DatabaseInitializer>().Initialize();
 
+// ══════════════════════════════════════════════════════════════════════
+// 8. PIPELINE DE MIDDLEWARES
+// ══════════════════════════════════════════════════════════════════════
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
     app.UseSwaggerUI();
 }
-
 app.UseExceptionHandler();
 app.UseMiddleware<CorrelationIdMiddleware>();
 app.UseHttpsRedirection();
@@ -95,6 +125,9 @@ app.UseSerilogRequestLogging(options =>
             ? LogEventLevel.Verbose : LogEventLevel.Information;
 });
 
+// ══════════════════════════════════════════════════════════════════════
+// 9. ENDPOINTS
+// ══════════════════════════════════════════════════════════════════════
 app.MapControllers();
 app.MapHealthChecks("/health", new Microsoft.AspNetCore.Diagnostics.HealthChecks.HealthCheckOptions
 {

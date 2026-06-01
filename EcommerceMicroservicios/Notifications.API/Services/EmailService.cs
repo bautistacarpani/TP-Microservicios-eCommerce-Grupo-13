@@ -29,7 +29,7 @@ public class EmailService
             var msg = MailHelper.CreateSingleEmail(
                 from: new EmailAddress("tpmicroserviciosgrupo5@gmail.com", "ECommerce"),
                 to: new EmailAddress(destinatario),
-                subject: "Notificación de tu orden",
+                subject: "🛒 Grupo 13 eCommerce — Nueva notificación",
                 plainTextContent: mensaje,
                 htmlContent: $"<p>{mensaje}</p>"
             );

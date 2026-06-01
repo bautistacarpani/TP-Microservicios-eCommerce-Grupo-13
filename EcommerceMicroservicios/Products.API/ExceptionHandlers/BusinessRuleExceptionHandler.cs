@@ -4,6 +4,11 @@ using Products.API.Exceptions;
 
 namespace Products.API.ExceptionHandlers;
 
+// ══════════════════════════════════════════════════════════════════════
+// BUSINESS RULE EXCEPTION HANDLER
+// Atrapa BusinessRuleException y devuelve HTTP 422.
+// Se dispara cuando se viola una regla de negocio (PRD-003, PRD-004).
+// ══════════════════════════════════════════════════════════════════════
 public class BusinessRuleExceptionHandler : IExceptionHandler
 {
     private readonly IWebHostEnvironment _env;

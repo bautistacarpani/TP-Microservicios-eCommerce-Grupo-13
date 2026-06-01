@@ -3,7 +3,11 @@ using Microsoft.AspNetCore.Mvc;
 using Cart.API.Exceptions;
 
 namespace Cart.API.ExceptionHandlers;
-
+// ══════════════════════════════════════════════════════════════════════
+// VALIDATION EXCEPTION HANDLER
+// Atrapa ValidationException y devuelve HTTP 400.
+// Se dispara para CRT-004 (cantidad inválida).
+// ══════════════════════════════════════════════════════════════════════
 public class ValidationExceptionHandler : IExceptionHandler
 {
     private readonly IWebHostEnvironment _env;

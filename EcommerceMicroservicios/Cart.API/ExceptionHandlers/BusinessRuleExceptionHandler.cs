@@ -3,7 +3,11 @@ using Microsoft.AspNetCore.Mvc;
 using Cart.API.Exceptions;
 
 namespace Cart.API.ExceptionHandlers;
-
+// ══════════════════════════════════════════════════════════════════════
+// BUSINESS RULE EXCEPTION HANDLER
+// Atrapa BusinessRuleException y devuelve HTTP 422.
+// Se dispara cuando se viola una regla de negocio del carrito.
+// ══════════════════════════════════════════════════════════════════════
 public class BusinessRuleExceptionHandler : IExceptionHandler
 {
     private readonly IWebHostEnvironment _env;
