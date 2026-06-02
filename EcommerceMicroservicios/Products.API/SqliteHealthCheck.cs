@@ -26,7 +26,7 @@ public class SqliteHealthCheck : IHealthCheck
             using var conn = new SqliteConnection(connectionString);
             await conn.OpenAsync(cancellationToken);
             await conn.ExecuteScalarAsync<int>("SELECT 1");
-            return HealthCheckResult.Healthy("Base de datos OK");
+            return HealthCheckResult.Healthy("SELECT 1 ejecutado OK");
         }
         catch (Exception ex)
         {

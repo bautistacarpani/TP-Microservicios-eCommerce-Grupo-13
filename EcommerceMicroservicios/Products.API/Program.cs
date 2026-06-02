@@ -70,8 +70,7 @@ builder.Services.AddSwaggerGen(options =>
 
 builder.Services.AddHealthChecks()
     .AddCheck<SqliteHealthCheck>("sqlite-db", tags: new[] { "database" })
-    .AddCheck("api-status", () => Microsoft.Extensions.Diagnostics.HealthChecks.HealthCheckResult.Healthy(), tags: new[] { "api" });
-
+    .AddCheck<ApiStatusCheck>("api-status", tags: new[] { "api" });
 builder.Services.AddHealthChecksUI(setup =>
 {
     setup.SetEvaluationTimeInSeconds(60);
