@@ -62,8 +62,13 @@ public static class CartEndpoints
             var response = await httpClient.GetAsync($"/api/products/{req.ProductId}");
 
             if (!response.IsSuccessStatusCode)
-                throw new NotFoundException(ErrorCodes.ProductoNoEncontrado,
-                    $"El producto con ID '{req.ProductId}' no existe en el catálogo.");
+            throw new NotFoundException(ErrorCodes.ProductoNoEncontrado,
+            $"El producto con ID '{req.ProductId}' no existe en el catálogo.");
+
+            var product = await response.Content.ReadFromJsonAsync<ProductResponse>();
+            if (req.Quantity > product!.Stock)
+            throw new BusinessRuleException(ErrorCodes.StockInsuficiente,
+            $"Stock insuficiente. Disponible: {product.Stock}, solicitado: {req.Quantity}.");
 
             var cart = await repo.UpsertItemAsync(userId, req.ProductId, req.Quantity);
             return Results.Ok(cart);
@@ -82,15 +87,39 @@ public static class CartEndpoints
         // Error CRT-004 si la cantidad es inválida.
         // Error CRT-002 si el producto no está en el carrito.
         // ──────────────────────────────────────────────────────────────
-        app.MapPut("/api/cart/{userId}/items/{productId}", async (CartRepository repo, Guid userId, Guid productId, UpdateCartItemRequest req) =>
+        app.MapPut("/api/cart/{userId}/items/{productId}", async (CartRepository repo, Guid userId, Guid productId, UpdateCartItemRequest req, IHttpClientFactory httpClientFactory, HttpContext context) =>
         {
-            if (req.Quantity <= 0)
-                throw new ValidationException(ErrorCodes.CantidadInvalida, "Cantidad inválida.");
-            var exists = await repo.ItemExistsAsync(userId, productId);
-            if (!exists)
-                throw new NotFoundException(ErrorCodes.ProductoNoEncontrado, "Producto no encontrado en el carrito.");
-            var cart = await repo.UpdateItemQuantityAsync(userId, productId, req.Quantity);
-            return Results.Ok(cart);
+        if (req.Quantity <= 0)
+        throw new ValidationException(ErrorCodes.CantidadInvalida, "Cantidad inválida.");
+
+        var cart = await repo.GetByUserIdAsync(userId);
+        if (cart is null)
+        throw new NotFoundException(ErrorCodes.CarritoNoEncontrado, "Carrito no encontrado.");
+
+        var correlationId = context.Request.Headers["X-Correlation-Id"]
+        .FirstOrDefault() ?? Guid.NewGuid().ToString();
+
+        var httpClient = httpClientFactory.CreateClient("ProductsClient");
+        httpClient.DefaultRequestHeaders.Remove("X-Correlation-Id");
+        httpClient.DefaultRequestHeaders.Add("X-Correlation-Id", correlationId);
+
+        var response = await httpClient.GetAsync($"/api/products/{productId}");
+        if (!response.IsSuccessStatusCode)
+        throw new NotFoundException(ErrorCodes.ProductoNoEncontrado,
+        $"El producto con ID '{productId}' no existe en el catálogo.");
+
+        var product = await response.Content.ReadFromJsonAsync<ProductResponse>();
+        if (req.Quantity > product!.Stock)
+        throw new BusinessRuleException(ErrorCodes.StockInsuficiente,
+        $"Stock insuficiente. Disponible: {product.Stock}, solicitado: {req.Quantity}.");
+
+        var exists = await repo.ItemExistsAsync(userId, productId);
+        if (!exists)
+        throw new NotFoundException(ErrorCodes.ProductoNoEncontrado,
+        "Producto no encontrado en el carrito.");
+
+        var updatedCart = await repo.UpdateItemQuantityAsync(userId, productId, req.Quantity);
+        return Results.Ok(updatedCart);
         })
         .WithTags("Cart")
         .WithSummary("Actualizar cantidad de un producto")
@@ -141,3 +170,5 @@ public static class CartEndpoints
         .Produces<ProblemDetails>(500);
     }
 }
+
+public record ProductResponse(Guid Id, string Name, long Stock, double Price, string Category, string? Description, string CreatedAt);
