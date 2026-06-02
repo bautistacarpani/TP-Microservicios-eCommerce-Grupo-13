@@ -24,13 +24,10 @@ public record CartItem
 }
 
 /// <summary>Request para agregar un producto al carrito.</summary>
-public record AddToCartRequest(
-    /// <summary>ID del producto a agregar.</summary>
-    Guid ProductId,
-    /// <summary>Cantidad a agregar. Debe ser mayor a 0.</summary>
-    int Quantity);
+/// <param name="ProductId" example="3fa85f64-5717-4562-b3fc-2c963f66afa6">ID del producto a agregar.</param>
+/// <param name="Quantity" example="2">Cantidad a agregar. Debe ser mayor a 0.</param>
+public record AddToCartRequest(Guid ProductId, int Quantity);
 
 /// <summary>Request para actualizar la cantidad de un producto en el carrito.</summary>
-public record UpdateCartItemRequest(
-    /// <summary>Nueva cantidad. Debe ser mayor a 0.</summary>
-    int Quantity);
+/// <param name="Quantity" example="4">Nueva cantidad. Debe ser mayor a 0.</param>
+public record UpdateCartItemRequest(int Quantity);
