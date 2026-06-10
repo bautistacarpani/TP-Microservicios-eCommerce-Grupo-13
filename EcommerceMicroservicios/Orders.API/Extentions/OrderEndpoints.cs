@@ -95,7 +95,7 @@ public static class OrderEndpoints
             };
 
             if (!estadosValidos.Contains(request.Estado))
-                throw new BusinessRuleException("ORD-006",
+                throw new ConflictException("ORD-006",
                     $"El estado '{request.Estado}' no es válido.");
 
             var transiciones = new Dictionary<string, List<string>>
@@ -108,7 +108,7 @@ public static class OrderEndpoints
             };
 
             if (!transiciones[order.Estado].Contains(request.Estado))
-                throw new BusinessRuleException("ORD-006",
+                throw new ConflictException("ORD-006",
                     $"Una orden en estado '{order.Estado}' no puede " +
                     $"cambiar a '{request.Estado}'.");
 
