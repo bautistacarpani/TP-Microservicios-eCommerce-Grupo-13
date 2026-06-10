@@ -73,7 +73,7 @@ builder.Services.AddHealthChecks()
     .AddCheck<ApiStatusCheck>("api-status", tags: new[] { "api" });
 builder.Services.AddHealthChecksUI(setup =>
 {
-    setup.SetEvaluationTimeInSeconds(60);
+    setup.SetEvaluationTimeInSeconds(600);
     setup.AddHealthCheckEndpoint("Products.API", "/health");
 }).AddInMemoryStorage();
 

@@ -77,47 +77,24 @@ public static class UsersEndpoints
                 correlationId = Guid.NewGuid().ToString(); // Fallback de seguridad
             }
 
-
-            // =========================================================================
-            // COMUNICACIÓN INTER-SERVICE: Notificación de Bienvenida (Fuego y Olvido optimizado)
-            // =========================================================================
-            _ = Task.Run(async () =>
-    {
-        try
-        {
-            var httpClient = httpClientFactory.CreateClient("NotificationsClient");
-
-            // 🔥 EXIGENCIA 5.5: Inyectamos el ID en la cabecera HTTP saliente
-            httpClient.DefaultRequestHeaders.Remove("X-Correlation-Id"); // Limpiamos por las dudas
-            httpClient.DefaultRequestHeaders.Add("X-Correlation-Id", correlationId.ToString());
-
-
-            // Reutilizamos el DTO de creación de notificaciones que espera la otra API
-            var notificationRequest = new
+            // Enviar mail de bienvenida a Notifications.API
+            try
             {
-                UsuarioId = user.Id,
-                Mensaje = $"¡Bienvenido {user.Nombre}! Tu cuenta ha sido creada con éxito.",
-                Tipo = "Email"
-            };
-
-            var respuesta = await httpClient.PostAsJsonAsync("/api/notifications/send", notificationRequest);
-
-            if (respuesta.IsSuccessStatusCode)
-            {
-                logger.LogInformation("Notificación de bienvenida enviada con éxito para el usuario {UserId}", user.Id);
+                var notifClient = httpClientFactory.CreateClient("NotificationsClient");
+                notifClient.DefaultRequestHeaders.TryAddWithoutValidation("X-Correlation-Id", correlationId.ToString());
+                await notifClient.PostAsJsonAsync("api/notifications/send", new
+                {
+                    usuarioId = user.Id,
+                    mensaje = $"¡Bienvenido/a {user.Nombre}! Tu cuenta fue creada exitosamente en nuestro eCommerce. Podés empezar a explorar nuestros productos.",
+                    tipo = "Email"
+                });
+                logger.LogInformation("Mail de bienvenida enviado al usuario {UserId}", user.Id);
             }
-            else
+            catch (Exception ex)
             {
-                logger.LogWarning("La API de Notificaciones respondió con error: {StatusCode}", respuesta.StatusCode);
+                logger.LogWarning(ex, "No se pudo enviar el mail de bienvenida al usuario {UserId}", user.Id);
             }
-        }
-        catch (Exception ex)
-        {
-            // Capturamos el error aquí para que un fallo en la red de notificaciones 
-            // NO le rompa el registro exitoso al usuario final.
-            logger.LogError(ex, "No se pudo comunicar con Notifications.API para el usuario {UserId}", user.Id);
-        }
-    });
+
 
 
             return Results.Created($"/api/users/{user.Id}", new UserResponse(user.Id, user.Nombre, user.Apellido, user.Email, user.FechaRegistro, user.Activo));
