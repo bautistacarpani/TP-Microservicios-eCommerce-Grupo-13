@@ -53,7 +53,7 @@ public partial class Program
         builder.Services.AddHttpClient("UsersClient", client =>
         {
             // Usá el puerto real donde corra tu Users.API en local (ej: 5101)
-            client.BaseAddress = new Uri(builder.Configuration["Services:UsersApi"] ?? "http://localhost:5101");
+            client.BaseAddress = new Uri(builder.Configuration["Services:UsersApi"] ?? "http://localhost:5242");
             client.Timeout = TimeSpan.FromSeconds(5);
         });
 
