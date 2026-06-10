@@ -27,7 +27,7 @@ public class UsersClient
             if (!string.IsNullOrEmpty(correlationId))
                 client.DefaultRequestHeaders.TryAddWithoutValidation("X-Correlation-Id", correlationId);
 
-            var response = await client.GetAsync($"/api/users/{usuarioId}/exists");
+            var response = await client.GetAsync($"api/users/{usuarioId}/exists");
 
             // Leemos el body una sola vez
             var body = await response.Content.ReadAsStringAsync();
