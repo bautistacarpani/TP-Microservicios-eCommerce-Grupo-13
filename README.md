@@ -66,6 +66,7 @@ cd EcommerceMicroservicios/Notifications.API
 dotnet run
 ```
 ###1. Propósito del Sistema
+
 Este proyecto implementa un sistema de E-Commerce basado en una arquitectura de microservicios. Cada funcionalidad del sistema está diseñada de forma desacoplada y se expone como una REST API independiente, desarrollada en C# utilizando .NET Core 8.
 
 El ecosistema se compone de 5 microservicios con responsabilidades únicas y bien definidas:
@@ -242,8 +243,8 @@ Para probar exitosamente los endpoints `POST` y `PUT`, es **obligatorio tener Pr
 
 ## 1. Modelo de Datos
 El modelo de órdenes se divide en dos entidades principales que se almacenan y relacionan en su base de datos SQLite:
-* **Order**: El registro principal de la compra. Incluye el `Id` (Guid), el `usuarioId` del cliente, el `total` (calculado automáticamente), el `estado` de la orden (Pendiente, Confirmada, Enviada, Entregada, Cancelada) y la `fechaCreacion` [1, 2].
-* **OrderItem**: Los productos individuales dentro de la orden. Contiene el `productoId`, la `cantidad` solicitada (que debe ser mayor a cero) y el `precioUnitario`, el cual es capturado directamente del catálogo al momento de crear la factura [1, 3].
+* **Order**: El registro principal de la compra. Incluye el `Id` (Guid), el `usuarioId` del cliente, el `total` (calculado automáticamente), el `estado` de la orden (Pendiente, Confirmada, Enviada, Entregada, Cancelada) y la `fechaCreacion`.
+* **OrderItem**: Los productos individuales dentro de la orden. Contiene el `productoId`, la `cantidad` solicitada (que debe ser mayor a cero) y el `precioUnitario`, el cual es capturado directamente del catálogo al momento de crear la factura.
 
 ## 2. Endpoints Disponibles
 * **`GET /api/orders`**: Lista todas las órdenes. Soporta un filtro opcional por cliente usando `?usuarioId=`
