@@ -1,4 +1,5 @@
-﻿using Orders.API.DTOs;
+﻿using Microsoft.AspNetCore.Mvc;
+using Orders.API.DTOs;
 using Orders.API.Exceptions;
 using Orders.API.Models;
 using Orders.API.Services;
@@ -16,7 +17,13 @@ public static class OrderEndpoints
         {
             var orders = await repository.GetAllAsync(usuarioId);
             return Results.Ok(orders.Select(MapToResponse));
-        }).WithTags("Orders");
+        })
+        .WithTags("Orders")
+        .WithName("GetOrders")
+        .WithSummary("Listar órdenes")
+        .WithDescription("Devuelve todas las órdenes. Opcionalmente filtra por usuarioId.")
+        .Produces<IEnumerable<OrderResponse>>(StatusCodes.Status200OK)
+        .Produces<ProblemDetails>(StatusCodes.Status500InternalServerError);
 
         // ─── Obtener orden por ID ─────────────────────────────
         app.MapGet("/api/orders/{id}", async (Guid id) =>
@@ -27,7 +34,14 @@ public static class OrderEndpoints
                 throw new NotFoundException("ORD-001", "Orden no encontrada.");
 
             return Results.Ok(MapToResponse(order));
-        }).WithTags("Orders");
+        })
+        .WithTags("Orders")
+        .WithName("GetOrderById")
+        .WithSummary("Obtener orden por ID")
+        .WithDescription("Devuelve el detalle de una orden específica. Lanza ORD-001 si no existe.")
+        .Produces<OrderResponse>(StatusCodes.Status200OK)
+        .Produces<ProblemDetails>(StatusCodes.Status404NotFound)
+        .Produces<ProblemDetails>(StatusCodes.Status500InternalServerError);
 
         // ─── Crear orden ──────────────────────────────────────
         app.MapPost("/api/orders", async (
@@ -62,7 +76,7 @@ public static class OrderEndpoints
                 items.Add(new OrderItem(
                     itemRequest.ProductoId,
                     itemRequest.Cantidad,
-                    producto.Precio  // precio real de Products API, reemplaza el TODO
+                    producto.Precio  // precio real de Products API
                 ));
             }
 
@@ -79,7 +93,16 @@ public static class OrderEndpoints
             await repository.CreateAsync(order);
 
             return Results.Created($"/api/orders/{order.Id}", MapToResponse(order));
-        }).WithTags("Orders");
+        })
+        .WithTags("Orders")
+        .WithName("CreateOrder")
+        .WithSummary("Crear nueva orden")
+        .WithDescription("Crea una orden validando usuario (ORD-003), productos (ORD-004) y stock (ORD-005) contra las APIs externas.")
+        .Produces<OrderResponse>(StatusCodes.Status201Created)
+        .Produces<ProblemDetails>(StatusCodes.Status400BadRequest)
+        .Produces<ProblemDetails>(StatusCodes.Status404NotFound)
+        .Produces<ProblemDetails>(StatusCodes.Status422UnprocessableEntity)
+        .Produces<ProblemDetails>(StatusCodes.Status500InternalServerError);
 
         // ─── Cambiar estado ───────────────────────────────────
         app.MapPut("/api/orders/{id}/status", async (Guid id, UpdateStatusRequest request) =>
@@ -119,7 +142,16 @@ public static class OrderEndpoints
                 updated.Estado,
                 updated.FechaActualizacion!.Value
             ));
-        }).WithTags("Orders");
+        })
+        .WithTags("Orders")
+        .WithName("UpdateOrderStatus")
+        .WithSummary("Actualizar estado de la orden")
+        .WithDescription("Cambia el estado siguiendo las transiciones válidas: Pendiente→Confirmada→Enviada→Entregada. Lanza ORD-006 si la transición no es válida.")
+        .Produces<UpdateStatusResponse>(StatusCodes.Status200OK)
+        .Produces<ProblemDetails>(StatusCodes.Status400BadRequest)
+        .Produces<ProblemDetails>(StatusCodes.Status404NotFound)
+        .Produces<ProblemDetails>(StatusCodes.Status409Conflict)
+        .Produces<ProblemDetails>(StatusCodes.Status500InternalServerError);
 
         // ─── Verificar órdenes activas por producto (uso interno de Products API) ─────
         app.MapGet("/api/orders/producto/{productoId}/tiene-ordenes-activas",
@@ -128,7 +160,11 @@ public static class OrderEndpoints
                 var tieneOrdenes = await repository.TieneOrdenesActivasAsync(productoId);
                 return Results.Ok(new { tieneOrdenesActivas = tieneOrdenes });
             })
-            .WithTags("Orders");
+        .WithTags("Orders")
+        .WithName("CheckActiveOrders")
+        .WithSummary("Verificar órdenes activas por producto")
+        .WithDescription("Endpoint interno usado por Products API para verificar si un producto tiene órdenes en estado Pendiente o Confirmada antes de eliminarlo.")
+        .Produces(StatusCodes.Status200OK);
     }
 
     private static OrderResponse MapToResponse(Order order) => new(
