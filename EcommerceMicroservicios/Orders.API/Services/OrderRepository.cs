@@ -48,7 +48,7 @@ public class OrderRepository
         if (row is null) return null;
 
         var order = MapOrder(row);
-        order.Items = (await GetItemsAsync(conn, order.Id)).ToList();
+        order.Items = ((IEnumerable<OrderItem>)await GetItemsAsync(conn, order.Id)).ToList();
         return order;
     }
 
