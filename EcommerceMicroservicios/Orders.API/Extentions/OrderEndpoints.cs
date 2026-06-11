@@ -50,11 +50,11 @@ public static class OrderEndpoints
             HttpContext context) =>
         {
             if (request.Items == null || !request.Items.Any())
-                throw new BusinessRuleException("ORD-002",
+                throw new ValidationException("ORD-002",
                     "La orden debe tener al menos un item.");
 
             if (request.Items.Any(i => i.Cantidad <= 0))
-                throw new BusinessRuleException("ORD-002",
+                throw new ValidationException("ORD-002",
                     "La cantidad de cada item debe ser mayor a cero.");
 
             // Leemos el ID para propagarlo a Products y Users en las llamadas salientes
