@@ -116,7 +116,11 @@ public static class NotificationEndpoints
 
                     if (email != null)
                     {
-                        var emailEnviado = await emailService.EnviarEmailAsync(email, request.Mensaje);
+                        var asunto = request.Mensaje.Contains("Bienvenido") 
+                        ? "¡Bienvenido/a a nuestro eCommerce! 🛒" 
+                        : "Notificación de tu orden";
+
+                        var emailEnviado = await emailService.EnviarEmailAsync(email, request.Mensaje, asunto);
                         var nuevoEstado = emailEnviado ? "Enviada" : "Fallida";
                         await repo.UpdateEstadoAsync(notification.Id, nuevoEstado);
                         notification.Estado = nuevoEstado;
