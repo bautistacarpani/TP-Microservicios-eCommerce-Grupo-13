@@ -32,13 +32,14 @@ cd TP-Microservicios-eCommerce-Grupo-13
 
 Cada servicio se levanta por separado en su propia terminal.
 
-> **Importante:** Para poder validar las conexiones entre todas las APIS, se recomienda levantar todos antes de probar. 
+> **Importante:** Para poder validar las conexiones entre todas las APIs, se recomienda levantar todas antes de probar.
 
 **Products.API**
 ```bash
 cd EcommerceMicroservicios/Products.API
 dotnet run
 ```
+Swagger: https://localhost:7209/swagger — Health UI: http://localhost:7209/health-ui
 Swagger: http://localhost:5046/swagger — Health UI: http://localhost:5046/health-ui
 
 **Cart.API**
@@ -46,6 +47,7 @@ Swagger: http://localhost:5046/swagger — Health UI: http://localhost:5046/heal
 cd EcommerceMicroservicios/Cart.API
 dotnet run
 ```
+Swagger: http://localhost:7095/swagger — Health UI: http://localhost:7095/health-ui
 Swagger: http://localhost:5252/swagger — Health UI: http://localhost:5252/health-ui
 
 **Users.API**
@@ -53,18 +55,27 @@ Swagger: http://localhost:5252/swagger — Health UI: http://localhost:5252/heal
 cd EcommerceMicroservicios/Users.API
 dotnet run
 ```
+Swagger: http://localhost:7203/swagger — Health UI: http://localhost:7203/health-ui
+Swagger: http://localhost:5242/swagger — Health UI: http://localhost:5242/health-ui
 
 **Orders.API**
 ```bash
 cd EcommerceMicroservicios/Orders.API
 dotnet run
 ```
+Swagger: http://localhost:7002/swagger — Health UI: http://localhost:7002/health-ui
+Swagger: http://localhost:5016/swagger — Health UI: http://localhost:5016/health-ui
 
 **Notifications.API**
 ```bash
 cd EcommerceMicroservicios/Notifications.API
 dotnet run
 ```
+Swagger: http://localhost:7041/swagger — Health UI: http://localhost:7041/health-ui
+Swagger: http://localhost:5270/swagger — Health UI: http://localhost:5270/health-ui
+
+> **Nota:** Los puertos indicados corresponden a los configurados en el archivo `Properties/launchSettings.json` de cada API. Si necesitás cambiarlos, modificá el campo `applicationUrl` en ese archivo antes de correr el proyecto.
+
 ###1. Propósito del Sistema
 
 Este proyecto implementa un sistema de E-Commerce basado en una arquitectura de microservicios. Cada funcionalidad del sistema está diseñada de forma desacoplada y se expone como una REST API independiente, desarrollada en C# utilizando .NET Core 8.
