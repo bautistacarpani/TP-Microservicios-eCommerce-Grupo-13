@@ -32,7 +32,7 @@ cd TP-Microservicios-eCommerce-Grupo-13
 
 Cada servicio se levanta por separado en su propia terminal.
 
-> **Importante:** Products.API debe estar corriendo antes que Cart.API y Orders.API.
+> **Importante:** Para poder validar las conexiones entre todas las APIS, se recomienda levantar todos antes de probar. 
 
 **Products.API**
 ```bash
@@ -122,7 +122,7 @@ La entidad principal de este servicio es el `User`, el cual se almacena en su pr
 * **Auditoría**: FechaRegistro.
 
 ## 2. Endpoints Disponibles
-* **`POST /api/users/register`**: Para registrar un usuario nuevo. Valida que el email no esté duplicado y encripta la contraseña.
+* **`POST /api/users/register`**: Para registrar un usuario nuevo. Valida que el email no esté duplicado y encripta la contraseña. Envía automáticamente un mail de bienvenida (puede estar en SPAM).
 * **`POST /api/users/login`**: Para autenticar mediante email y contraseña. Devuelve los datos del usuario si las credenciales son correctas.
 * **`GET /api/users/{id}/exists`**: Endpoint interno ultrarrápido creado para validar si un usuario existe sin exponer sus datos sensibles. Es consumido de forma cruzada por las APIs de Notifications y Orders.
 
@@ -152,7 +152,7 @@ Sus campos incluyen:
 * **FechaEnvio**: Fecha asignada automáticamente al registrarse.
 
 ## 2. Endpoints Disponibles
-* **`POST /api/notifications/send`**: Registra y simula el envío de una nueva notificación. Recibe el destinatario, el mensaje y el tipo de canal.
+* **`POST /api/notifications/send`**: Registra y envía una nueva notificación a través de Email (suele llegar en SPAM). Recibe el destinatario, el mensaje y el tipo de canal.
 * **`GET /api/notifications/{userId}`**: Lista el historial completo de notificaciones asociadas a un usuario específico.
 
 ## 3. Reglas de Negocio y Validación Cruzada
