@@ -2,6 +2,10 @@
 
 Sistema de E-Commerce basado en arquitectura de microservicios, implementado en C# con .NET Core 8.
 
+Diagrama de la arquitectura del eCommerce: 
+<img width="1042" height="432" alt="arquitectura-ecommerce drawio" src="https://github.com/user-attachments/assets/5140bfd6-a79e-4e32-ae7f-45ad9e491f59" />
+
+
 ## Integrantes
 
 | Integrante | Servicios |
